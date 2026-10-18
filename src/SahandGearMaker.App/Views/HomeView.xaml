@@ -1,0 +1,56 @@
+<UserControl x:Class="SahandGearMaker.App.Views.HomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="RightToLeft">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24" MaxWidth="900" HorizontalAlignment="Center">
+
+            <TextBlock Text="به طراح چرخ‌دنده سهند خوش آمدید" Style="{StaticResource TitleText}" Margin="0,0,0,6" />
+            <TextBlock Style="{StaticResource MutedText}" Margin="0,0,0,20"
+                       Text="ابزار پارامتریک طراحی چرخ‌دنده و خروجی مش برای CAD/چاپ سه‌بعدی — کاملاً آفلاین" />
+
+            <UniformGrid Columns="2">
+                <Border Background="White" CornerRadius="10" Padding="18" Margin="0,0,10,10">
+                    <StackPanel>
+                        <TextBlock Text="⚙ شروع سریع" Style="{StaticResource SectionText}" Margin="0,0,0,6" />
+                        <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap"
+                                   Text="۱) در تب «طراح چرخ‌دنده» پارامترها را وارد کنید. ۲) پیام‌های اعتبارسنجی را ببینید. ۳) مدل را بچرخانید. ۴) از تب «خروجی» فایل STL/OBJ/PLY/GLB بگیرید." />
+                    </StackPanel>
+                </Border>
+
+                <Border Background="White" CornerRadius="10" Padding="18" Margin="10,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="🔒 آفلاین و خصوصی" Style="{StaticResource SectionText}" Margin="0,0,0,6" />
+                        <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap"
+                                   Text="طراحی، ذخیره و خروجی بدون اینترنت کار می‌کند. هیچ داده‌ای بدون رضایت شما ارسال نمی‌شود و برنامهٔ ایمیل شما باز نمی‌شود." />
+                    </StackPanel>
+                </Border>
+
+                <Border Background="White" CornerRadius="10" Padding="18" Margin="0,0,10,10">
+                    <StackPanel>
+                        <TextBlock Text="🧭 وضعیت قابلیت‌ها" Style="{StaticResource SectionText}" Margin="0,0,0,6" />
+                        <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap"
+                                   Text="پیاده‌سازی‌شده: خارجی مستقیم. محدود: مارپیچ، جناغی، داخلی، شانه. نقشهٔ راه: حلزونی، مخروطی، سیاره‌ای و فرمت‌های B-rep (STEP/IGES) — موارد راه‌راه، مدل جعلی نمی‌سازند." />
+                    </StackPanel>
+                </Border>
+
+                <Border Background="White" CornerRadius="10" Padding="18" Margin="10,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="📐 ماتریس فرمت خروجی" Style="{StaticResource SectionText}" Margin="0,0,0,6" />
+                        <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap"
+                                   Text="فعال: STL (باینری/متنی)، OBJ+MTL، PLY، GLB — همه «مش مثلثی» و با اعتبارسنجی پس از نوشتن. ناتمام: STEP/IGES/3MF/DXF (به‌دلیل نبود هستهٔ CAD معرفی نمی‌شوند)." />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <GroupBox Header="پروژهٔ نمونه" Margin="0,10">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap"
+                               Text="نمونهٔ بی‌خطر آموزشی: یک چرخ‌دندهٔ خارجی ۲۰ دندانه با ماژول ۲ میلی‌متر." />
+                    <Button Content="ساخت نمونه" Width="160" HorizontalAlignment="Left" Margin="0,10,0,0"
+                            Click="CreateSample_Click" />
+                </StackPanel>
+            </GroupBox>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

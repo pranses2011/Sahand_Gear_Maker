@@ -1,0 +1,74 @@
+<UserControl x:Class="SahandGearMaker.App.Views.AboutView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="RightToLeft">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24" MaxWidth="680" HorizontalAlignment="Center">
+
+            <TextBlock Text="دربارهٔ برنامه" Style="{StaticResource TitleText}" Margin="0,0,0,4" />
+            <TextBlock Style="{StaticResource MutedText}" Margin="0,0,0,18">
+                <Run Text="نسخهٔ 0.1.0 — " /><Run Text="طراح چرخ‌دنده سهند" /><Run Text=" | " /><Run Text="Sahand Gear Designer" />
+            </TextBlock>
+
+            <Border Background="White" CornerRadius="10" Padding="18" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="مشخصات سازنده" Style="{StaticResource SectionText}" Margin="0,0,0,8" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="110" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="طراح و نویسنده" Style="{StaticResource MutedText}" Margin="0,3" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="سعید نجفی" Style="{StaticResource BaseText}" Margin="0,3" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="تلفن" Style="{StaticResource MutedText}" Margin="0,3" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="09144220430" Style="{StaticResource BaseText}"
+                                   FlowDirection="LeftToRight" HorizontalAlignment="Right" Margin="0,3" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="ایمیل" Style="{StaticResource MutedText}" Margin="0,3" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Pranses2011@GMail.com" Style="{StaticResource BaseText}"
+                                   FlowDirection="LeftToRight" HorizontalAlignment="Right" Margin="0,3" />
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="وب‌سایت" Style="{StaticResource MutedText}" Margin="0,3" />
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="EA-Fixer.ir" Style="{StaticResource BaseText}"
+                                   FlowDirection="LeftToRight" HorizontalAlignment="Right" Margin="0,3" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Background="White" CornerRadius="10" Padding="18" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="حریم خصوصی و آفلاین بودن" Style="{StaticResource SectionText}" Margin="0,0,0,8" />
+                    <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap" Margin="0,2"
+                               Text="این برنامه کاملاً آفلاین کار می‌کند: طراحی، ذخیره و خروجی هیچ اتصالی به اینترنت لازم ندارد. هیچ حساب کاربری، فعال‌سازی آنلاین یا فونت اینترنتی وجود ندارد." />
+                    <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap" Margin="0,6"
+                               Text="فرم بازخورد داخل خود برنامه است و از برنامهٔ ایمیل شما استفاده نمی‌کند. پیام‌ها ابتدا به‌صورت محلی ذخیره می‌شوند و فقط در صورت پیکربندی سرویس امن ارسال و با رضایت شما انجام می‌شود. همیشه می‌توانید صف محلی را پاک کنید." />
+                </StackPanel>
+            </Border>
+
+            <Border Background="White" CornerRadius="10" Padding="18" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="محدودیت‌های مهندسی (صادقانه)" Style="{StaticResource SectionText}" Margin="0,0,0,8" />
+                    <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap" Margin="0,2"
+                               Text="• خروجی‌ها «مش مثلثی» هستند؛ STEP/IGES (B-rep دقیق) پیاده‌سازی نشده و ادعا نمی‌شود." />
+                    <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap" Margin="0,4"
+                               Text="• تحلیل استحکام، عمر، صدا و روانکاری در دامنهٔ این برنامه نیست؛ «مدل سه‌بعدی درست» به معنای «چرخ‌دندهٔ ایمن برای تولید» نیست." />
+                    <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap" Margin="0,4"
+                               Text="• بررسی تماس/تداخل جفت‌ها اسمی/تقریبی است و با وضعیت «تأییدشده» اشتباه گرفته نمی‌شود." />
+                </StackPanel>
+            </Border>
+
+            <Border Background="White" CornerRadius="10" Padding="18">
+                <StackPanel>
+                    <TextBlock Text="سرمایهٔ نرم‌افزاری" Style="{StaticResource SectionText}" Margin="0,0,0,8" />
+                    <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap" Margin="0,2"
+                               Text="فونت وزیرمتن با مجوز OFL 1.1 همراه برنامه است (متن مجوز در پوشهٔ Fonts). سایر وابستگی‌ها: CommunityToolkit.Mvvm و MahApps IconPacks با مجوز MIT. فهرست کامل در مستندات مخزن." />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,52 @@
+<UserControl x:Class="SahandGearMaker.App.Views.ExportView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="RightToLeft">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16" MaxWidth="760" HorizontalAlignment="Center">
+
+            <TextBlock Text="خروجی" Style="{StaticResource TitleText}" Margin="0,0,0,4" />
+            <TextBlock Style="{StaticResource MutedText}" Margin="0,0,0,14"
+                       Text="فقط فرمت‌های پیاده‌سازی‌شده فعال‌اند؛ خروجی همیشه «مش مثلثی» است، نه B-rep دقیق CAD." />
+
+            <GroupBox Header="گام ۱ — فرمت">
+                <StackPanel>
+                    <ListBox x:Name="FormatList" SelectionChanged="FormatList_SelectionChanged" MinHeight="180" />
+                    <TextBlock x:Name="FormatNote" Style="{StaticResource MutedText}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="گام ۲ — کیفیت مش">
+                <StackPanel>
+                    <TextBlock Text="پیش‌تنظیم" Style="{StaticResource MutedText}" Margin="0,2" />
+                    <ComboBox x:Name="QualityCombo" SelectionChanged="QualityCombo_SelectionChanged" HorizontalAlignment="Left" Width="240">
+                        <ComboBoxItem Content="پیش‌نمایش (سریع و سبک)" />
+                        <ComboBoxItem Content="معمولی (تبادل عمومی)" IsSelected="True" />
+                        <ComboBoxItem Content="دقیق (چاپ/جزئیات بیشتر)" />
+                    </ComboBox>
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="گام ۳ — واحد">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource MutedText}" Margin="0,2,0,6" TextWrapping="Wrap"
+                               Text="STL واحد درون‌فایلی ندارد؛ واحد انتخابی در نام/گزارش همراه درج می‌شود. GLB طبق استاندارد به متر تبدیل می‌شود." />
+                    <ComboBox x:Name="UnitCombo" SelectionChanged="UnitCombo_SelectionChanged" HorizontalAlignment="Left" Width="240">
+                        <ComboBoxItem Content="میلی‌متر" IsSelected="True" />
+                        <ComboBoxItem Content="اینچ" />
+                    </ComboBox>
+                </StackPanel>
+            </GroupBox>
+
+            <Button Content="خروجی بگیر…" Click="Export_Click" HorizontalAlignment="Left"
+                    Padding="24,10" Margin="0,8,0,4" />
+
+            <GroupBox Header="نتیجه و گزارش" Margin="0,10">
+                <StackPanel>
+                    <TextBlock x:Name="StatusText" Style="{StaticResource SectionText}" Margin="0,0,0,8" TextWrapping="Wrap" />
+                    <ListBox x:Name="ReportList" MinHeight="120" />
+                </StackPanel>
+            </GroupBox>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

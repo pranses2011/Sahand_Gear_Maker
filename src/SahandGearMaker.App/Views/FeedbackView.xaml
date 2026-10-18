@@ -1,0 +1,44 @@
+<UserControl x:Class="SahandGearMaker.App.Views.FeedbackView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="RightToLeft">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16" MaxWidth="720" HorizontalAlignment="Center">
+
+            <TextBlock Text="ارسال نظر یا گزارش مشکل" Style="{StaticResource TitleText}" Margin="0,0,0,4" />
+            <TextBlock x:Name="PrivacyText" Style="{StaticResource MutedText}" Margin="0,0,0,14" TextWrapping="Wrap" />
+
+            <GroupBox Header="فرم پیام">
+                <StackPanel>
+                    <TextBlock Text="دسته" Style="{StaticResource MutedText}" Margin="0,2" />
+                    <ComboBox x:Name="CategoryCombo" HorizontalAlignment="Left" Width="240" SelectedIndex="0">
+                        <ComboBoxItem Content="پیشنهاد" />
+                        <ComboBoxItem Content="گزارش مشکل" />
+                        <ComboBoxItem Content="سایر" />
+                    </ComboBox>
+
+                    <TextBlock Text="متن پیام" Style="{StaticResource MutedText}" Margin="0,10,2,2" />
+                    <TextBox x:Name="MessageText" Height="120" AcceptsReturn="True" TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto" />
+
+                    <TextBlock Text="راه تماس (اختیاری)" Style="{StaticResource MutedText}" Margin="0,10,2,2" />
+                    <TextBox x:Name="ContactText" HorizontalAlignment="Left" Width="320" />
+
+                    <Button Content="ارسال / ذخیره در صف" Click="Send_Click" HorizontalAlignment="Left"
+                            Padding="20,9" Margin="0,12,0,0" />
+                    <TextBlock x:Name="SendStatus" Style="{StaticResource SectionText}" Margin="0,10,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="صف محلی (قابل بازبینی و حذف)" Margin="0,10">
+                <StackPanel>
+                    <ListBox x:Name="QueueList" MinHeight="100" MaxHeight="220" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="حذف انتخاب‌شده" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="RemoveSelected_Click" />
+                        <Button Content="پاک‌کردن کل صف" Style="{StaticResource SecondaryButton}" Click="ClearQueue_Click" />
+                    </StackPanel>
+                </StackPanel>
+            </GroupBox>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
