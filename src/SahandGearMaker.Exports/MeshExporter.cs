@@ -1,3 +1,4 @@
+using System.Text;
 using SahandGearMaker.Domain;
 using SahandGearMaker.Geometry;
 using SahandGearMaker.MathX;
@@ -81,7 +82,7 @@ public static class MeshExporter
         using (var w = new BinaryWriter(fs))
         {
             Span<byte> header = stackalloc byte[80];
-            "Sahand Gear Designer - mesh export (unit see report)".AsSpan().CopyTo(header); // ASCII امن
+            Encoding.ASCII.GetBytes("Sahand Gear Designer - mesh export", header);
             w.Write(header);
             w.Write((uint)mesh.TriangleCount);
             var verts = mesh.Vertices;
@@ -209,14 +210,6 @@ public static class MeshExporter
         sb.AppendLine(CultureInfo($"mtllib {Path.GetFileName(mtlPath)}"));
         sb.AppendLine($"o {SanitizeName(displayName ?? "gear")}");
         var verts = mesh.Vertices;
-        foreach (var v in verts)
-            sb.AppendLine(CultureInfo($"v {v.X * scale:G9} {v.Y * scale:G9} {v.Z * scale:G9}"));
-        foreach (var t in mesh.Triangles)
-            sb.AppendLine($"usemtl {mtlName}");
-        sb.Length = 0; // بازنویسی بدون usemtl تکراری
-        sb.AppendLine("# Sahand Gear Designer — mesh export (OBJ)");
-        sb.AppendLine(CultureInfo($"mtllib {Path.GetFileName(mtlPath)}"));
-        sb.AppendLine($"o {SanitizeName(displayName ?? "gear")}");
         foreach (var v in verts)
             sb.AppendLine(CultureInfo($"v {v.X * scale:G9} {v.Y * scale:G9} {v.Z * scale:G9}"));
         sb.AppendLine($"usemtl {mtlName}");

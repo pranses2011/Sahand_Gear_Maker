@@ -1,0 +1,16 @@
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/bin/Debug/net8.0/SahandGearMaker.Assembly.deps.json
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/bin/Debug/net8.0/SahandGearMaker.Assembly.dll
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/bin/Debug/net8.0/SahandGearMaker.Assembly.pdb
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/bin/Debug/net8.0/SahandGearMaker.Domain.dll
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/bin/Debug/net8.0/SahandGearMaker.Domain.pdb
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/obj/Debug/net8.0/SahandGearMaker.Assembly.csproj.AssemblyReference.cache
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/obj/Debug/net8.0/SahandGearMaker.Assembly.GeneratedMSBuildEditorConfig.editorconfig
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/obj/Debug/net8.0/SahandGearMaker.Assembly.AssemblyInfoInputs.cache
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/obj/Debug/net8.0/SahandGearMaker.Assembly.AssemblyInfo.cs
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/obj/Debug/net8.0/SahandGearMaker.Assembly.csproj.CoreCompileInputs.cache
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/obj/Debug/net8.0/SahandGearMaker.Assembly.sourcelink.json
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/obj/Debug/net8.0/SahandGe.F9A3D5FF.Up2Date
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/obj/Debug/net8.0/SahandGearMaker.Assembly.dll
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/obj/Debug/net8.0/refint/SahandGearMaker.Assembly.dll
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/obj/Debug/net8.0/SahandGearMaker.Assembly.pdb
+/home/z/my-project/repo/src/SahandGearMaker.Assembly/obj/Debug/net8.0/ref/SahandGearMaker.Assembly.dll

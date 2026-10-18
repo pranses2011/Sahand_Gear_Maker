@@ -1,0 +1,16 @@
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/bin/Debug/net8.0/SahandGearMaker.Persistence.deps.json
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/bin/Debug/net8.0/SahandGearMaker.Persistence.dll
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/bin/Debug/net8.0/SahandGearMaker.Persistence.pdb
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/bin/Debug/net8.0/SahandGearMaker.Domain.dll
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/bin/Debug/net8.0/SahandGearMaker.Domain.pdb
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/obj/Debug/net8.0/SahandGearMaker.Persistence.csproj.AssemblyReference.cache
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/obj/Debug/net8.0/SahandGearMaker.Persistence.GeneratedMSBuildEditorConfig.editorconfig
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/obj/Debug/net8.0/SahandGearMaker.Persistence.AssemblyInfoInputs.cache
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/obj/Debug/net8.0/SahandGearMaker.Persistence.AssemblyInfo.cs
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/obj/Debug/net8.0/SahandGearMaker.Persistence.csproj.CoreCompileInputs.cache
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/obj/Debug/net8.0/SahandGearMaker.Persistence.sourcelink.json
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/obj/Debug/net8.0/SahandGe.FA09202C.Up2Date
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/obj/Debug/net8.0/SahandGearMaker.Persistence.dll
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/obj/Debug/net8.0/refint/SahandGearMaker.Persistence.dll
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/obj/Debug/net8.0/SahandGearMaker.Persistence.pdb
+/home/z/my-project/repo/src/SahandGearMaker.Persistence/obj/Debug/net8.0/ref/SahandGearMaker.Persistence.dll

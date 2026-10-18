@@ -1,0 +1,132 @@
+{
+  "version": 3,
+  "targets": {
+    "net8.0": {
+      "SahandGearMaker.Domain/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "compile": {
+          "bin/placeholder/SahandGearMaker.Domain.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/SahandGearMaker.Domain.dll": {}
+        }
+      },
+      "SahandGearMaker.Geometry/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "dependencies": {
+          "SahandGearMaker.Domain": "1.0.0",
+          "SahandGearMaker.Math": "1.0.0"
+        },
+        "compile": {
+          "bin/placeholder/SahandGearMaker.Geometry.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/SahandGearMaker.Geometry.dll": {}
+        }
+      },
+      "SahandGearMaker.Math/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "compile": {
+          "bin/placeholder/SahandGearMaker.Math.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/SahandGearMaker.Math.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "SahandGearMaker.Domain/1.0.0": {
+      "type": "project",
+      "path": "../SahandGearMaker.Domain/SahandGearMaker.Domain.csproj",
+      "msbuildProject": "../SahandGearMaker.Domain/SahandGearMaker.Domain.csproj"
+    },
+    "SahandGearMaker.Geometry/1.0.0": {
+      "type": "project",
+      "path": "../SahandGearMaker.Geometry/SahandGearMaker.Geometry.csproj",
+      "msbuildProject": "../SahandGearMaker.Geometry/SahandGearMaker.Geometry.csproj"
+    },
+    "SahandGearMaker.Math/1.0.0": {
+      "type": "project",
+      "path": "../SahandGearMaker.Math/SahandGearMaker.Math.csproj",
+      "msbuildProject": "../SahandGearMaker.Math/SahandGearMaker.Math.csproj"
+    }
+  },
+  "projectFileDependencyGroups": {
+    "net8.0": [
+      "SahandGearMaker.Domain >= 1.0.0",
+      "SahandGearMaker.Geometry >= 1.0.0"
+    ]
+  },
+  "packageFolders": {
+    "/home/z/.nuget/packages/": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "/home/z/my-project/repo/src/SahandGearMaker.Exports/SahandGearMaker.Exports.csproj",
+      "projectName": "SahandGearMaker.Exports",
+      "projectPath": "/home/z/my-project/repo/src/SahandGearMaker.Exports/SahandGearMaker.Exports.csproj",
+      "packagesPath": "/home/z/.nuget/packages/",
+      "outputPath": "/home/z/my-project/repo/src/SahandGearMaker.Exports/obj/",
+      "projectStyle": "PackageReference",
+      "configFilePaths": [
+        "/home/z/.nuget/NuGet/NuGet.Config"
+      ],
+      "originalTargetFrameworks": [
+        "net8.0"
+      ],
+      "sources": {
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "projectReferences": {
+            "/home/z/my-project/repo/src/SahandGearMaker.Domain/SahandGearMaker.Domain.csproj": {
+              "projectPath": "/home/z/my-project/repo/src/SahandGearMaker.Domain/SahandGearMaker.Domain.csproj"
+            },
+            "/home/z/my-project/repo/src/SahandGearMaker.Geometry/SahandGearMaker.Geometry.csproj": {
+              "projectPath": "/home/z/my-project/repo/src/SahandGearMaker.Geometry/SahandGearMaker.Geometry.csproj"
+            }
+          }
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      }
+    },
+    "frameworks": {
+      "net8.0": {
+        "targetAlias": "net8.0",
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          }
+        },
+        "runtimeIdentifierGraphPath": "/home/z/.dotnet/sdk/8.0.426/PortableRuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}
