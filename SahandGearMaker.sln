@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SahandGearMaker.Assembly", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SahandGearMaker.Persistence", "src\SahandGearMaker.Persistence\SahandGearMaker.Persistence.csproj", "{1B5E96F2-7CB4-4C8B-BDA3-A2AE90D50B61}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SahandGearMaker.Exports", "src\SahandGearMaker.Exports\SahandGearMaker.Exports.csproj", "{F1B1ACCD-CAD7-4D36-B05B-5F971AE15582}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -44,6 +46,10 @@ Global
 		{1B5E96F2-7CB4-4C8B-BDA3-A2AE90D50B61}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1B5E96F2-7CB4-4C8B-BDA3-A2AE90D50B61}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1B5E96F2-7CB4-4C8B-BDA3-A2AE90D50B61}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F1B1ACCD-CAD7-4D36-B05B-5F971AE15582}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F1B1ACCD-CAD7-4D36-B05B-5F971AE15582}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F1B1ACCD-CAD7-4D36-B05B-5F971AE15582}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F1B1ACCD-CAD7-4D36-B05B-5F971AE15582}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{7B5FD9C5-FB95-431C-A9AD-91A06FDA559F} = {D33AAA82-6BB7-4D9F-88A2-73A77E0651E3}
@@ -51,5 +57,6 @@ Global
 		{C6E91C63-E8FD-47C6-807E-0373F8DE724E} = {D33AAA82-6BB7-4D9F-88A2-73A77E0651E3}
 		{922ABB88-C50F-4C2E-AE48-512DFEA3D7E2} = {D33AAA82-6BB7-4D9F-88A2-73A77E0651E3}
 		{1B5E96F2-7CB4-4C8B-BDA3-A2AE90D50B61} = {D33AAA82-6BB7-4D9F-88A2-73A77E0651E3}
+		{F1B1ACCD-CAD7-4D36-B05B-5F971AE15582} = {D33AAA82-6BB7-4D9F-88A2-73A77E0651E3}
 	EndGlobalSection
 EndGlobal
