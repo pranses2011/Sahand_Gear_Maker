@@ -47,6 +47,32 @@
                     <ListBox x:Name="ReportList" MinHeight="120" />
                 </StackPanel>
             </GroupBox>
+
+            <!-- خروجی دسته‌ای (فاز ۲٫۵): همهٔ قطعات/گونه‌ها با یک تنظیم؛ شکست جزئی پنهان نمی‌شود -->
+            <GroupBox Header="خروجی دسته‌ای همهٔ قطعات (فاز ۲٫۵)" Margin="0,10,0,0">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource MutedText}" FontSize="11.5" TextWrapping="Wrap" Margin="0,2,0,8"
+                               Text="همهٔ قطعات دارای ساخت معتبر با فرمت و کیفیت بالا صادر می‌شوند. شکست هر فایل بقیه را متوقف نمی‌کند و در گزارش می‌آید." />
+                    <UniformGrid Columns="2">
+                        <StackPanel Margin="0,0,8,4">
+                            <TextBlock Text="فرمت دسته‌ای" Style="{StaticResource MutedText}" FontSize="11" />
+                            <ComboBox x:Name="BatchFormatCombo" FontSize="12">
+                                <ComboBoxItem Content="STL باینری" IsSelected="True" />
+                                <ComboBoxItem Content="STL متنی" />
+                                <ComboBoxItem Content="OBJ" />
+                                <ComboBoxItem Content="PLY" />
+                                <ComboBoxItem Content="GLB" />
+                                <ComboBoxItem Content="3MF" />
+                                <ComboBoxItem Content="AMF" />
+                            </ComboBox>
+                        </StackPanel>
+                        <StackPanel Margin="8,0,0,4" VerticalAlignment="Bottom">
+                            <Button Content="خروجی دسته‌ای…" Click="BatchExport_Click" />
+                        </StackPanel>
+                    </UniformGrid>
+                    <TextBlock x:Name="BatchResult" Style="{StaticResource MutedText}" FontSize="11.5" TextWrapping="Wrap" Margin="0,6,0,0" />
+                </StackPanel>
+            </GroupBox>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

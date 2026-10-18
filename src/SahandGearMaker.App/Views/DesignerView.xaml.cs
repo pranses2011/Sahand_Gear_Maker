@@ -6,6 +6,7 @@ using System.Windows.Media;
 using SahandGearMaker.App.Controls;
 using SahandGearMaker.App.ViewModels;
 using SahandGearMaker.Domain;
+using SahandGearMaker.Exports;
 using SahandGearMaker.Persistence;
 using SahandGearMaker.Scene;
 
@@ -77,7 +78,11 @@ public partial class DesignerView : UserControl
         if (_main is null) return;
         Viewport.UpdateScene(VM.SceneSnapshot(), VM.SelectedPart?.Id);
         RefreshViewsList();
+        VariantsList.ItemsSource = VM.Variants.ToList();
     }
+
+    /// <summary>تازه‌سازی عمومی صحنه — از MainWindow برای مونتاژ/بررسی (فاز ۳/۴).</summary>
+    public void RefreshScenePublic() => RefreshScene();
 
     private void RefreshViewsList()
     {
@@ -544,6 +549,127 @@ public partial class DesignerView : UserControl
             VM.DeleteView(name);
             RefreshViewsList();
         }
+    }
+
+    // ---------- گونه‌ها (فاز ۲٫۴) ----------
+
+    private void RegisterVariant_Click(object sender, RoutedEventArgs e)
+    {
+        string name = VariantName.Text.Trim();
+        if (name.Length == 0)
+        {
+            _main?.SetStatus("نام گونه را وارد کنید.");
+            return;
+        }
+        VM.RegisterVariant(name);
+        VariantsList.ItemsSource = VM.Variants.ToList();
+        _main?.SetStatus($"گونهٔ «{name}» ثبت شد ({VM.Variants.Count} گونه).");
+    }
+
+    private void ApplyVariant_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is not string name) return;
+        var variant = VM.Variants.FirstOrDefault(v => v.Name == name);
+        if (variant is null) return;
+        VM.ApplyVariant(variant);
+        SyncFromPart();
+        RefreshScene();
+        _main?.SetStatus($"گونهٔ «{name}» اعمال شد — با Ctrl+Z قابل بازگشت.");
+    }
+
+    private void CompareVariants_Click(object sender, RoutedEventArgs e)
+    {
+        if (VM.Variants.Count < 2)
+        {
+            VariantCompare.Text = "برای مقایسه حداقل دو گونه لازم است.";
+            return;
+        }
+        var diffs = VM.CompareVariants(0, 1);
+        VariantCompare.Text = diffs.Count == 0
+            ? $"«{VM.Variants[0].Name}» و «{VM.Variants[1].Name}» تفاوتی ندارند."
+            : string.Join("\n", diffs.Select(d => $"{d.PartName} — {d.Field}: {d.OldValue} ← {d.NewValue}"));
+    }
+
+    private void SaveVariants_Click(object sender, RoutedEventArgs e)
+    {
+        if (VM.Variants.Count == 0)
+        {
+            _main?.SetStatus("گونه‌ای برای ذخیره نیست.");
+            return;
+        }
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "ذخیرهٔ گونه‌ها",
+            Filter = "گونه‌های طراح چرخ‌دنده (*.sgdvariants)|*.sgdvariants",
+            FileName = MeshExporter.SanitizeName(VM.ProjectName) + ".sgdvariants",
+        };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            VM.SaveVariants(dlg.FileName);
+            _main?.SetStatus($"گونه‌ها ذخیره شدند: {dlg.FileName}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(Window.GetWindow(this), $"ذخیرهٔ گونه‌ها ناموفق بود: {ex.Message}", "گونه‌ها",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void LoadVariants_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "بارگذاری گونه‌ها",
+            Filter = "گونه‌های طراح چرخ‌دنده (*.sgdvariants)|*.sgdvariants",
+            CheckFileExists = true,
+        };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            VM.LoadVariants(dlg.FileName);
+            VariantsList.ItemsSource = VM.Variants.ToList();
+            _main?.SetStatus($"{VM.Variants.Count} گونه بارگذاری شد.");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(Window.GetWindow(this), $"بارگذاری گونه‌ها ناموفق بود: {ex.Message}", "گونه‌ها",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    // ---------- مدل مرجع (فاز ۲٫۳) ----------
+
+    private void ImportReference_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "ورود مدل مرجع",
+            Filter = "مدل مش (*.stl;*.obj;*.ply)|*.stl;*.obj;*.ply",
+            CheckFileExists = true,
+        };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            string info = VM.ImportReference(dlg.FileName);
+            ReferenceInfo.Text = $"آخرین مرجع: {info} — ({VM.ReferenceCount} مرجع فعال)";
+            RefreshScene();
+            _main?.SetStatus("مدل مرجع به‌صورت شبح شفاف اضافه شد.");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(Window.GetWindow(this), $"ورود مدل ناموفق بود: {ex.Message}", "مدل مرجع",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void RemoveReference_Click(object sender, RoutedEventArgs e)
+    {
+        VM.RemoveLastReference();
+        ReferenceInfo.Text = VM.ReferenceCount == 0
+            ? "مرجعی فعال نیست."
+            : $"({VM.ReferenceCount} مرجع فعال باقی مانده)";
+        RefreshScene();
     }
 
     // ---------- مدیریت قطعات ----------

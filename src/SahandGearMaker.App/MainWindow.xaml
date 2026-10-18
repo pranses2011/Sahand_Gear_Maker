@@ -34,6 +34,8 @@
                     <Button x:Name="BtnNew" Content="پروژهٔ جدید" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="BtnNew_Click" />
                     <Button x:Name="BtnOpen" Content="بازکردن" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="BtnOpen_Click" />
                     <Button x:Name="BtnSave" Content="ذخیره" Margin="0,0,8,0" Click="BtnSave_Click" />
+                    <Button x:Name="BtnUndo" Content="↷ واگرد" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="BtnUndo_Click" ToolTip="Ctrl+Z" />
+                    <Button x:Name="BtnRedo" Content="↶ ازنو" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Click="BtnRedo_Click" ToolTip="Ctrl+Y" />
                     <Button x:Name="BtnExport" Content="خروجی…" Style="{StaticResource SecondaryButton}" Click="BtnExport_Click" />
                 </StackPanel>
             </DockPanel>
@@ -50,11 +52,14 @@
             <Border Grid.Column="0" Width="190" Background="White" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,0,0,0">
                 <ListBox x:Name="NavList" Background="Transparent" BorderThickness="0"
                          SelectionChanged="NavList_SelectionChanged" Margin="8">
-                    <ListBoxItem Content="🏠 خانه" Padding="10,12" />
-                    <ListBoxItem Content="⚙ طراح چرخ‌دنده" Padding="10,12" IsSelected="True" />
-                    <ListBoxItem Content="📦 خروجی" Padding="10,12" />
-                    <ListBoxItem Content="✉ بازخورد" Padding="10,12" />
-                    <ListBoxItem Content="ℹ درباره" Padding="10,12" />
+                    <ListBoxItem Content="🏠 خانه" Padding="10,10" />
+                    <ListBoxItem Content="⚙ طراح چرخ‌دنده" Padding="10,10" IsSelected="True" />
+                    <ListBoxItem Content="🔗 مونتاژ" Padding="10,10" />
+                    <ListBoxItem Content="📐 نقشهٔ فنی" Padding="10,10" />
+                    <ListBoxItem Content="📦 خروجی" Padding="10,10" />
+                    <ListBoxItem Content="🛠 بررسی" Padding="10,10" />
+                    <ListBoxItem Content="✉ بازخورد" Padding="10,10" />
+                    <ListBoxItem Content="ℹ درباره" Padding="10,10" />
                 </ListBox>
             </Border>
 
@@ -65,8 +70,17 @@
                 <TabItem Header="" x:Name="TabDesigner">
                     <views:DesignerView x:Name="DesignerView" />
                 </TabItem>
+                <TabItem Header="" x:Name="TabAssembly">
+                    <views:AssemblyView x:Name="AssemblyView" />
+                </TabItem>
+                <TabItem Header="" x:Name="TabDrawing">
+                    <views:DrawingView x:Name="DrawingView" />
+                </TabItem>
                 <TabItem Header="" x:Name="TabExport">
                     <views:ExportView x:Name="ExportView" />
+                </TabItem>
+                <TabItem Header="" x:Name="TabInspect">
+                    <views:InspectView x:Name="InspectView" />
                 </TabItem>
                 <TabItem Header="" x:Name="TabFeedback">
                     <views:FeedbackView x:Name="FeedbackView" />

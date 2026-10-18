@@ -19,6 +19,9 @@ public partial class ExportViewModel : ObservableObject
 {
     private readonly DesignerViewModel _designer;
 
+    /// <summary>دسترسی عمومی به طراح برای خروجی دسته‌ای (فاز ۲٫۵).</summary>
+    public DesignerViewModel Designer => _designer;
+
     public ObservableCollection<ExportFormatOption> Formats { get; } = new()
     {
         new("STL-BINARY", "STL باینری (چاپ سه‌بعدی)", true, "مش مثلثی؛ واحد در گزارش همراه ذکر می‌شود"),

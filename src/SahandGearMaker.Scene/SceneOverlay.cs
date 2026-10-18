@@ -272,4 +272,19 @@ public static class SceneOverlay
             x += 4;
         }
     }
+
+    /// <summary>متن ریز با پس‌زمینهٔ روشن برای خوانایی روی هر سطح (برچسب اندازه‌گیری — فاز ۴٫۱).</summary>
+    public static void DrawTinyTextAt(byte[] pixels, int pw, int ph, int x0, int y0, string text, Rgb c)
+    {
+        // پس‌زمینه
+        int width = text.Length * 4 + 3;
+        for (int y = y0 - 3; y < y0 + 7; y++)
+            for (int x = x0 - 3; x < x0 + width; x++)
+                if ((uint)x < (uint)pw && (uint)y < (uint)ph)
+                {
+                    int o = (y * pw + x) * 4;
+                    pixels[o] = 252; pixels[o + 1] = 250; pixels[o + 2] = 245;
+                }
+        DrawTinyText(pixels, pw, ph, x0, y0, text, c);
+    }
 }

@@ -140,6 +140,12 @@ public sealed record RenderOptions
 
     /// <summary>اندازهٔ گام گرید مرجع (mm)؛ صفر = خودکار از ابعاد صحنه.</summary>
     public double GridStepMm { get; init; }
+
+    /// <summary>پاره‌خط‌های اندازه‌گیری فاز ۴٫۱ — دو نقطه = فاصله؛ سه نقطه = زاویه.</summary>
+    public IReadOnlyList<(MathX.Vector3 A, MathX.Vector3 B)>? MeasureLines { get; init; }
+
+    /// <summary>برچسب‌های عددی کنار پاره‌خط‌های اندازه‌گیری.</summary>
+    public IReadOnlyList<(MathX.Vector3 At, string Label)>? MeasureLabels { get; init; }
 }
 
 /// <summary>آمار یک فریم — برای HUD بوم (فاز ۱٫۸).</summary>

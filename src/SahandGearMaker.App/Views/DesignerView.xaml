@@ -93,12 +93,9 @@
             </Border>
         </Grid>
 
-        <!-- ═══ ستون چپ: درخت + شیئ + نمابر + گونه‌ها + پیام‌ها ═══ -->
+        <!-- ═══ ستون چپ: تب‌های درخت/گونه‌ها/پیام‌ها (فاز ۲٫۳/۲٫۴) ═══ -->
         <Grid Grid.Column="2" Margin="6">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="2*" />
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
@@ -109,123 +106,182 @@
                 <Button Content="حذف" Style="{StaticResource SecondaryButton}" Click="RemovePart_Click" Padding="8,4" />
             </StackPanel>
 
-            <!-- درخت پروژه — فاز ۱٫۲۱: چشم/قفل/رنگ/وضعیت -->
-            <GroupBox Grid.Row="1" Header="درخت پروژه">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl x:Name="PartsList" ItemsSource="{Binding}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border x:Name="Row" Margin="1,1" Padding="6,4" CornerRadius="5"
-                                        Background="#FFF6F8FB" MouseLeftButtonUp="PartNode_Click"
-                                        Tag="{Binding Id}" Cursor="Hand">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <Button Grid.Column="0" Content="{Binding EyeIcon, Mode=OneWay}" FontSize="12"
-                                                Background="Transparent" BorderThickness="0" Padding="2,0"
-                                                Click="Eye_Click" Tag="{Binding Id}" ToolTip="نمایش/مخفی" />
-                                        <Button Grid.Column="1" Content="{Binding LockIcon, Mode=OneWay}" FontSize="11"
-                                                Background="Transparent" BorderThickness="0" Padding="2,0"
-                                                Click="Lock_Click" Tag="{Binding Id}" ToolTip="قفل/بازکردن" />
-                                        <Border Grid.Column="2" Width="11" Height="11" CornerRadius="3" Margin="4,0"
-                                                Background="{Binding ColorHex, Mode=OneWay}" ToolTip="رنگ نمایشی" />
-                                        <TextBlock Grid.Column="3" Text="{Binding Name, Mode=OneWay}" FontSize="12.5"
-                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="2,0" />
-                                        <TextBlock Grid.Column="4" Text="{Binding StatusBadge, Mode=OneWay}" FontSize="11"
-                                                   VerticalAlignment="Center" />
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-            </GroupBox>
+            <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0">
+                <!-- ── تب درخت ── -->
+                <TabItem Header="درخت">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="2*" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
 
-            <!-- جای‌گذاری و ظاهر شیئ — فاز ۱٫۲۲/۱٫۲۳ (O4/O5/O6) -->
-            <GroupBox Grid.Row="2" Header="جای‌گذاری و ظاهر قطعهٔ انتخابی" Margin="0,6,0,0">
-                <StackPanel>
-                    <UniformGrid Columns="3">
-                        <StackPanel Margin="0,0,6,4">
-                            <TextBlock Text="X (mm)" Style="{StaticResource MutedText}" FontSize="11" />
-                            <TextBox x:Name="PlaceX" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
-                        </StackPanel>
-                        <StackPanel Margin="0,0,6,4">
-                            <TextBlock Text="Y (mm)" Style="{StaticResource MutedText}" FontSize="11" />
-                            <TextBox x:Name="PlaceY" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
-                        </StackPanel>
-                        <StackPanel Margin="0,0,0,4">
-                            <TextBlock Text="Z (mm)" Style="{StaticResource MutedText}" FontSize="11" />
-                            <TextBox x:Name="PlaceZ" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
-                        </StackPanel>
-                    </UniformGrid>
-                    <UniformGrid Columns="3">
-                        <StackPanel Margin="0,0,6,4">
-                            <TextBlock Text="چرخش (درجه)" Style="{StaticResource MutedText}" FontSize="11" />
-                            <TextBox x:Name="PlaceTheta" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
-                        </StackPanel>
-                        <StackPanel Margin="0,0,6,4">
-                            <TextBlock Text="مقیاس (۱=واقعی)" Style="{StaticResource MutedText}" FontSize="11" />
-                            <TextBox x:Name="PlaceScale" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
-                        </StackPanel>
-                        <StackPanel Margin="0,0,0,4">
-                            <TextBlock Text="شفافیت (۰-۱)" Style="{StaticResource MutedText}" FontSize="11" />
-                            <TextBox x:Name="PlaceOpacity" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
-                        </StackPanel>
-                    </UniformGrid>
-                    <UniformGrid Columns="2">
-                        <Button Content="🎨 رنگ…" Style="{StaticResource SecondaryButton}" Margin="0,0,4,4" Click="PartColor_Click" />
-                        <Button Content="⌖ قاب این قطعه" Style="{StaticResource SecondaryButton}" Margin="4,0,0,4" Click="FramePart_Click" />
-                    </UniformGrid>
-                </StackPanel>
-            </GroupBox>
+                        <!-- درخت پروژه — فاز ۱٫۲۱: چشم/قفل/رنگ/وضعیت -->
+                        <GroupBox Grid.Row="0" Header="درخت پروژه">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="PartsList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border x:Name="Row" Margin="1,1" Padding="6,4" CornerRadius="5"
+                                                    Background="#FFF6F8FB" MouseLeftButtonUp="PartNode_Click"
+                                                    Tag="{Binding Id}" Cursor="Hand">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Button Grid.Column="0" Content="{Binding EyeIcon, Mode=OneWay}" FontSize="12"
+                                                            Background="Transparent" BorderThickness="0" Padding="2,0"
+                                                            Click="Eye_Click" Tag="{Binding Id}" ToolTip="نمایش/مخفی" />
+                                                    <Button Grid.Column="1" Content="{Binding LockIcon, Mode=OneWay}" FontSize="11"
+                                                            Background="Transparent" BorderThickness="0" Padding="2,0"
+                                                            Click="Lock_Click" Tag="{Binding Id}" ToolTip="قفل/بازکردن" />
+                                                    <Border Grid.Column="2" Width="11" Height="11" CornerRadius="3" Margin="4,0"
+                                                            Background="{Binding ColorHex, Mode=OneWay}" ToolTip="رنگ نمایشی" />
+                                                    <TextBlock Grid.Column="3" Text="{Binding Name, Mode=OneWay}" FontSize="12.5"
+                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="2,0" />
+                                                    <TextBlock Grid.Column="4" Text="{Binding StatusBadge, Mode=OneWay}" FontSize="11"
+                                                               VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </GroupBox>
 
-            <!-- نماهای نام‌دار — فاز ۱٫۱۶ -->
-            <GroupBox Grid.Row="3" Header="نماهای نام‌دار" Margin="0,6,0,0">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBox x:Name="ViewName" Width="120" Margin="0,0,4,0" />
-                        <Button Content="ذخیرهٔ نما" Style="{StaticResource SecondaryButton}" Click="SaveView_Click" Padding="8,3" />
-                    </StackPanel>
-                    <ItemsControl x:Name="ViewsList" Margin="0,4,0,0">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal" Margin="0,1">
-                                    <Button Content="▶" Background="Transparent" BorderThickness="0" Padding="4,0"
-                                            Click="ApplyView_Click" Tag="{Binding Name}" ToolTip="اعمال نما" />
-                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" Width="150" TextTrimming="CharacterEllipsis" />
-                                    <Button Content="✕" Background="Transparent" BorderThickness="0" Padding="4,0"
-                                            Click="DeleteView_Click" Tag="{Binding Name}" ToolTip="حذف نما" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </GroupBox>
-
-            <!-- پیام‌ها -->
-            <GroupBox Grid.Row="4" Header="پیام‌ها و اعتبارسنجی" Margin="0,6,0,0">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl x:Name="DiagnosticsList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Margin="0,3" Padding="8,6" CornerRadius="6" Background="#FFF1F5F9">
-                                    <StackPanel>
-                                        <TextBlock FontSize="11.5" Foreground="#FF64748B"
-                                                   Text="{Binding SeverityLabel, Mode=OneWay}" />
-                                        <TextBlock FontSize="12.5" TextWrapping="Wrap"
-                                                   Text="{Binding Message, Mode=OneWay}" />
+                        <!-- جای‌گذاری و ظاهر شیئ — فاز ۱٫۲۲/۱٫۲۳ (O4/O5/O6) -->
+                        <GroupBox Grid.Row="1" Header="جای‌گذاری و ظاهر قطعهٔ انتخابی" Margin="0,6,0,0">
+                            <StackPanel>
+                                <UniformGrid Columns="3">
+                                    <StackPanel Margin="0,0,6,4">
+                                        <TextBlock Text="X (mm)" Style="{StaticResource MutedText}" FontSize="11" />
+                                        <TextBox x:Name="PlaceX" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
                                     </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-            </GroupBox>
+                                    <StackPanel Margin="0,0,6,4">
+                                        <TextBlock Text="Y (mm)" Style="{StaticResource MutedText}" FontSize="11" />
+                                        <TextBox x:Name="PlaceY" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,0,4">
+                                        <TextBlock Text="Z (mm)" Style="{StaticResource MutedText}" FontSize="11" />
+                                        <TextBox x:Name="PlaceZ" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
+                                    </StackPanel>
+                                </UniformGrid>
+                                <UniformGrid Columns="3">
+                                    <StackPanel Margin="0,0,6,4">
+                                        <TextBlock Text="چرخش (درجه)" Style="{StaticResource MutedText}" FontSize="11" />
+                                        <TextBox x:Name="PlaceTheta" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,6,4">
+                                        <TextBlock Text="مقیاس (۱=واقعی)" Style="{StaticResource MutedText}" FontSize="11" />
+                                        <TextBox x:Name="PlaceScale" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,0,4">
+                                        <TextBlock Text="شفافیت (۰-۱)" Style="{StaticResource MutedText}" FontSize="11" />
+                                        <TextBox x:Name="PlaceOpacity" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
+                                    </StackPanel>
+                                </UniformGrid>
+                                <UniformGrid Columns="2">
+                                    <Button Content="🎨 رنگ…" Style="{StaticResource SecondaryButton}" Margin="0,0,4,4" Click="PartColor_Click" />
+                                    <Button Content="⌖ قاب این قطعه" Style="{StaticResource SecondaryButton}" Margin="4,0,0,4" Click="FramePart_Click" />
+                                </UniformGrid>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- نماهای نام‌دار — فاز ۱٫۱۶ -->
+                        <GroupBox Grid.Row="2" Header="نماهای نام‌دار" Margin="0,6,0,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox x:Name="ViewName" Width="120" Margin="0,0,4,0" />
+                                    <Button Content="ذخیرهٔ نما" Style="{StaticResource SecondaryButton}" Click="SaveView_Click" Padding="8,3" />
+                                </StackPanel>
+                                <ItemsControl x:Name="ViewsList" Margin="0,4,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" Margin="0,1">
+                                                <Button Content="▶" Background="Transparent" BorderThickness="0" Padding="4,0"
+                                                        Click="ApplyView_Click" Tag="{Binding Name}" ToolTip="اعمال نما" />
+                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" Width="150" TextTrimming="CharacterEllipsis" />
+                                                <Button Content="✕" Background="Transparent" BorderThickness="0" Padding="4,0"
+                                                        Click="DeleteView_Click" Tag="{Binding Name}" ToolTip="حذف نما" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </GroupBox>
+                    </Grid>
+                </TabItem>
+
+                <!-- ── تب گونه‌ها و مرجع (فاز ۲٫۳/۲٫۴) ── -->
+                <TabItem Header="گونه‌ها و مرجع">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <GroupBox Header="گونه‌ها (Variant)">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBox x:Name="VariantName" Width="120" Margin="0,0,4,0" />
+                                        <Button Content="ثبت گونه" Style="{StaticResource SecondaryButton}" Click="RegisterVariant_Click" Padding="8,3" Margin="0,0,4,0" />
+                                        <Button Content="مقایسه" Style="{StaticResource SecondaryButton}" Click="CompareVariants_Click" Padding="8,3" />
+                                    </StackPanel>
+                                    <ItemsControl x:Name="VariantsList" Margin="0,4,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" Margin="0,1">
+                                                    <Button Content="⇩" Background="Transparent" BorderThickness="0" Padding="4,0" FontSize="13"
+                                                            Click="ApplyVariant_Click" Tag="{Binding Name}" ToolTip="اعمال این گونه" />
+                                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" Width="170" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock x:Name="VariantCompare" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                    <UniformGrid Columns="2" Margin="0,6,0,0">
+                                        <Button Content="ذخیرهٔ گونه‌ها…" Style="{StaticResource SecondaryButton}" Margin="0,0,4,4" Click="SaveVariants_Click" FontSize="11" />
+                                        <Button Content="بارگذاری گونه‌ها…" Style="{StaticResource SecondaryButton}" Margin="4,0,0,4" Click="LoadVariants_Click" FontSize="11" />
+                                    </UniformGrid>
+                                    <TextBlock Style="{StaticResource MutedText}" FontSize="10.5" TextWrapping="Wrap"
+                                               Text="اعمال گونه، وضعیت فعلی را با «واگرد» قابل بازگشت می‌کند." />
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="مدل مرجع (STL/OBJ/PLY)" Margin="0,8,0,0">
+                                <StackPanel>
+                                    <Button Content="ورود مدل مرجع…" Click="ImportReference_Click" Margin="0,2" />
+                                    <Button Content="حذف آخرین مرجع" Style="{StaticResource SecondaryButton}" Click="RemoveReference_Click" Margin="0,2" FontSize="11" />
+                                    <TextBlock x:Name="ReferenceInfo" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
+                                               Text="مدل مرجع به‌صورت شبح شفاف رسم می‌شود و هرگز به‌عنوان چرخ‌دندهٔ پارامتریک تفسیر نمی‌شود (سیاست صادقانه). حداکثر ۲ میلیون مثلث / ۴۰۰MB." />
+                                </StackPanel>
+                            </GroupBox>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- ── تب پیام‌ها ── -->
+                <TabItem Header="پیام‌ها">
+                    <GroupBox Header="پیام‌ها و اعتبارسنجی">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl x:Name="DiagnosticsList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,3" Padding="8,6" CornerRadius="6" Background="#FFF1F5F9">
+                                            <StackPanel>
+                                                <TextBlock FontSize="11.5" Foreground="#FF64748B"
+                                                           Text="{Binding SeverityLabel, Mode=OneWay}" />
+                                                <TextBlock FontSize="12.5" TextWrapping="Wrap"
+                                                           Text="{Binding Message, Mode=OneWay}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </GroupBox>
+                </TabItem>
+            </TabControl>
         </Grid>
     </Grid>
 </UserControl>

@@ -1,0 +1,158 @@
+<UserControl x:Class="SahandGearMaker.App.Views.AssemblyView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="RightToLeft">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="360" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ستون راست: روابط و ویزارد -->
+        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="6">
+            <StackPanel>
+                <TextBlock Text="مونتاژ و حرکت" Style="{StaticResource SectionText}" Margin="4,0,4,8" />
+
+                <GroupBox Header="افزودن رابطهٔ جفت‌شدن (۳٫۱)">
+                    <StackPanel>
+                        <TextBlock Text="قطعهٔ A" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <ComboBox x:Name="PartACombo" Margin="0,2,0,6" />
+                        <TextBlock Text="قطعهٔ B" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <ComboBox x:Name="PartBCombo" Margin="0,2,0,6" />
+                        <TextBlock Text="نوع جفت‌شدن" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <ComboBox x:Name="KindCombo" Margin="0,2,0,8" />
+                        <UniformGrid Columns="2">
+                            <Button Content="افزودن و بررسی" Click="AddMating_Click" Margin="0,0,4,0" />
+                            <Button Content="چیدمان خودکار (۳٫۲)" Style="{StaticResource SecondaryButton}" Margin="4,0,0,0" Click="AutoLayout_Click" />
+                        </UniformGrid>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="ویزارد مجموعهٔ سیاره‌ای (۳٫۳)" Margin="0,8,0,0">
+                    <StackPanel>
+                        <UniformGrid Columns="2">
+                            <StackPanel Margin="0,0,4,4">
+                                <TextBlock Text="دندانهٔ خورشیدی" Style="{StaticResource MutedText}" FontSize="11" />
+                                <TextBox x:Name="SunTeeth" Text="18" FlowDirection="LeftToRight" />
+                            </StackPanel>
+                            <StackPanel Margin="4,0,0,4">
+                                <TextBlock Text="دندانهٔ سیاره" Style="{StaticResource MutedText}" FontSize="11" />
+                                <TextBox x:Name="PlanetTeeth" Text="24" FlowDirection="LeftToRight" />
+                            </StackPanel>
+                        </UniformGrid>
+                        <UniformGrid Columns="2">
+                            <StackPanel Margin="0,0,4,4">
+                                <TextBlock Text="تعداد سیاره‌ها" Style="{StaticResource MutedText}" FontSize="11" />
+                                <TextBox x:Name="PlanetCount" Text="3" FlowDirection="LeftToRight" />
+                            </StackPanel>
+                            <StackPanel Margin="4,0,0,4">
+                                <TextBlock Text="ماژول (mm)" Style="{StaticResource MutedText}" FontSize="11" />
+                                <TextBox x:Name="PlanetaryModule" Text="2" FlowDirection="LeftToRight" />
+                            </StackPanel>
+                        </UniformGrid>
+                        <Button Content="ساخت گیربکس سیاره‌ای" Click="CreatePlanetary_Click" Margin="0,4,0,0" />
+                        <TextBlock x:Name="PlanetaryResult" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="نمای انفجاری (۳٫۵)" Margin="0,8,0,0">
+                    <StackPanel>
+                        <TextBlock Text="ضریب کشش شعاعی" Style="{StaticResource MutedText}" FontSize="11" />
+                        <Slider x:Name="ExplodeSlider" Minimum="0" Maximum="1" Value="0"
+                                ValueChanged="ExplodeSlider_ValueChanged" TickFrequency="0.1" IsSnapToTickEnabled="False" />
+                        <UniformGrid Columns="2">
+                            <TextBlock Text="فشرده" Style="{StaticResource MutedText}" FontSize="10.5" />
+                            <TextBlock Text="باز" Style="{StaticResource MutedText}" FontSize="10.5" HorizontalAlignment="Left" />
+                        </UniformGrid>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="دستیار نسبت/فاصله (۳٫۶)" Margin="0,8,0,0">
+                    <StackPanel>
+                        <Button Content="پیشنهاد نسبت برای جفت انتخابی" Style="{StaticResource SecondaryButton}" Click="Suggest_Click" />
+                        <TextBlock x:Name="SuggestResult" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ستون چپ: گراف روابط + پخش‌کنندهٔ حرکت -->
+        <Grid Grid.Column="1" Margin="6">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- پخش‌کنندهٔ حرکت (۳٫۴) -->
+            <GroupBox Grid.Row="0" Header="پخش‌کنندهٔ حرکت — سینماتیک ایدئال (لقی/انعطاف مدل نمی‌شود)">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,6,4">
+                            <TextBlock Text="عضو ورودی" Style="{StaticResource MutedText}" FontSize="11" />
+                            <ComboBox x:Name="InputPartCombo" SelectionChanged="InputPart_SelectionChanged" FontSize="12" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="0,0,6,4">
+                            <TextBlock Text="سرعت (درجه/ثانیه)" Style="{StaticResource MutedText}" FontSize="11" />
+                            <TextBox x:Name="SpeedBox" Text="60" FlowDirection="LeftToRight" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Margin="0,0,6,4">
+                            <TextBlock Text="جهت" Style="{StaticResource MutedText}" FontSize="11" />
+                            <ComboBox x:Name="DirectionCombo" FontSize="12">
+                                <ComboBoxItem Content="مثبت (+)" IsSelected="True" />
+                                <ComboBoxItem Content="منفی (−)" />
+                            </ComboBox>
+                        </StackPanel>
+                        <StackPanel Grid.Column="3" Margin="0,0,0,4" VerticalAlignment="Bottom">
+                            <UniformGrid Columns="2">
+                                <Button x:Name="PlayButton" Content="▶ پخش" Click="Play_Click" Margin="0,0,3,0" FontSize="12" />
+                                <Button Content="⏸ توقف" Style="{StaticResource SecondaryButton}" Click="Pause_Click" Margin="3,0,0,0" FontSize="12" />
+                            </UniformGrid>
+                            <UniformGrid Columns="2" Margin="0,3,0,0">
+                                <Button Content="⏭ گام" Style="{StaticResource SecondaryButton}" Click="Step_Click" Margin="0,0,3,0" FontSize="11" />
+                                <Button Content="⟲ بازنشانی" Style="{StaticResource SecondaryButton}" Click="Reset_Click" Margin="3,0,0,0" FontSize="11" />
+                            </UniformGrid>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock x:Name="RatioText" Style="{StaticResource MutedText}" FontSize="12" Margin="0,4,0,0"
+                               Text="نسبت لحظه‌ای: —" />
+                </StackPanel>
+            </GroupBox>
+
+            <!-- گراف روابط (۳٫۱) -->
+            <GroupBox Grid.Row="1" Header="روابط مونتاژ (گراف جفت‌ها)" Margin="0,8,0,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="MatingsList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,3" Padding="10,7" CornerRadius="6"
+                                        Background="{Binding Bg, Mode=OneWay}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock FontSize="12.5" FontWeight="Bold"
+                                                       Text="{Binding Title, Mode=OneWay}" />
+                                            <TextBlock FontSize="11.5" Foreground="#445"
+                                                       Text="{Binding Detail, Mode=OneWay}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Content="✕" Background="Transparent" BorderThickness="0"
+                                                VerticalAlignment="Center" Padding="6,0" Click="RemoveMating_Click"
+                                                Tag="{Binding Relation, Mode=OneWay}" ToolTip="حذف رابطه" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </GroupBox>
+        </Grid>
+    </Grid>
+</UserControl>

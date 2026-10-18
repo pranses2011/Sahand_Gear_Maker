@@ -56,6 +56,9 @@ public partial class ViewportControl : UserControl, IDisposable
     public event EventHandler<string?>? PickRequested;
     public event EventHandler? ToggleFullscreenRequested;
 
+    /// <summary>فاز ۴٫۱ — نقاط اندازه‌گیری به‌روزشد (۲ نقطه = فاصله، ۳ نقطه = زاویه).</summary>
+    public event EventHandler<IReadOnlyList<MathX.Vector3>>? MeasureUpdated;
+
     private volatile int _sizeW = 8, _sizeH = 8;
 
     public ViewportControl()
@@ -119,6 +122,47 @@ public partial class ViewportControl : UserControl, IDisposable
         _wake.Set();
     }
 
+    // ---------- اندازه‌گیری (فاز ۴٫۱) ----------
+
+    private readonly List<MathX.Vector3> _measurePoints = new();
+    private bool _measureMode;
+
+    /// <summary>فعال/غیرفعال‌کردن حالت اندازه‌گیری — کلیک‌ها نقطه می‌گیرند نه انتخاب.</summary>
+    public void EnableMeasure(bool enable)
+    {
+        _measureMode = enable;
+        if (!enable)
+        {
+            lock (_stateLock) _measurePoints.Clear();
+            _dirty = true;
+            _wake.Set();
+        }
+    }
+
+    public bool IsMeasuring => _measureMode;
+
+    public void ClearMeasure()
+    {
+        lock (_stateLock) _measurePoints.Clear();
+        _dirty = true;
+        _wake.Set();
+    }
+
+    private void AddMeasurePoint(MathX.Vector3 p)
+    {
+        List<MathX.Vector3> snapshot;
+        lock (_stateLock)
+        {
+            _measurePoints.Add(p);
+            snapshot = _measurePoints.ToList();
+        }
+        if (snapshot.Count > 3)
+            lock (_stateLock) _measurePoints.RemoveRange(0, _measurePoints.Count - 3); // فقط ۳ نقطهٔ آخر
+        MeasureUpdated?.Invoke(this, snapshot.Take(3).ToArray());
+        _dirty = true;
+        _wake.Set();
+    }
+
     public void ShowBusy(bool busy) => Dispatcher.BeginInvoke(() =>
         BusyBadge.Visibility = busy ? Visibility.Visible : Visibility.Collapsed);
 
@@ -159,6 +203,18 @@ public partial class ViewportControl : UserControl, IDisposable
     public SavedCameraView CaptureCurrentView(string name)
     {
         lock (_stateLock) return SavedCameraView.FromCamera(_camera, name);
+    }
+
+    /// <summary>نصب مستقیم دوربین (نمای دوم ارتوگرافیک — فاز ۴٫۴)؛ صرفاً روی رشتهٔ UI.</summary>
+    public void SetCameraDirect(SahandGearMaker.Scene.SceneCamera cam)
+    {
+        lock (_stateLock)
+        {
+            _camera.Projection = cam.Projection;
+            _camera.SetView(cam.Azimuth, cam.Elevation, cam.Distance, cam.Target, animate: false);
+        }
+        _dirty = true;
+        _wake.Set();
     }
 
     /// <summary>فرمان خام رشتهٔ رندر — برای صفحه‌کلید/تنظیمات.</summary>
@@ -235,6 +291,30 @@ public partial class ViewportControl : UserControl, IDisposable
                     HighlightId = _highlightId,
                     ClipZ = _clipZ,
                 };
+                // پاره‌خط‌های اندازه‌گیری (۴٫۱)
+                var measureCopy = _measurePoints.ToList();
+                if (measureCopy.Count >= 2)
+                {
+                    var ml = new List<(MathX.Vector3, MathX.Vector3)>();
+                    var lbls = new List<(MathX.Vector3, string)>();
+                    for (int i = 0; i + 1 < measureCopy.Count; i++)
+                    {
+                        var a = measureCopy[i];
+                        var b = measureCopy[i + 1];
+                        ml.Add((a, b));
+                        double d = (a - b).Length;
+                        lbls.Add(((a + b) / 2, $"{d:0.##}mm"));
+                    }
+                    if (measureCopy.Count == 3)
+                    {
+                        var v1 = measureCopy[0] - measureCopy[1];
+                        var v2 = measureCopy[2] - measureCopy[1];
+                        double ang = Math.Acos(Math.Clamp(
+                            MathX.Vector3.Dot(v1, v2) / Math.Max(1e-9, v1.Length * v2.Length), -1, 1));
+                        lbls.Add((measureCopy[1], $"{ang * 180 / Math.PI:0.#}deg"));
+                    }
+                    opt = opt with { MeasureLines = ml, MeasureLabels = lbls };
+                }
             }
 
             int w = 8, h = 8;
@@ -376,8 +456,31 @@ public partial class ViewportControl : UserControl, IDisposable
         if (wasRotating)
         {
             if (_dragMoved) Enqueue(c => c.EndDrag());  // اینرسی فقط پس از درگ واقعی
+            else if (_measureMode) DoMeasurePick(e);      // فاز ۴٫۱: نقطه‌گیری
             else DoPick(e);                              // کلیک تمیز = انتخاب (فاز ۱٫۱۹)
         }
+    }
+
+    private void DoMeasurePick(MouseButtonEventArgs e)
+    {
+        var pos = e.GetPosition(InteractionLayer);
+        CameraFrame frame;
+        SceneObject[] objects;
+        lock (_stateLock)
+        {
+            frame = _sharedFrame;
+            objects = _snapshot;
+        }
+        if (!_frameValid) return;
+        var hit = ScenePicking.PickPoint(objects, frame, pos.X, pos.Y);
+        if (hit is null)
+        {
+            // صفحهٔ هدف به‌عنوان جایگزین
+            if (ScenePicking.PlaneAnchorUnderCursor(frame, pos.X, pos.Y) is { } anchor)
+                AddMeasurePoint(anchor);
+            return;
+        }
+        AddMeasurePoint(hit.Point);
     }
 
     private void Interaction_MouseUp(object sender, MouseButtonEventArgs e)
@@ -501,6 +604,10 @@ public partial class ViewportControl : UserControl, IDisposable
                 break;
             case Key.P:
                 ToggleProjection();
+                e.Handled = true;
+                break;
+            case Key.M:
+                EnableMeasure(!_measureMode);
                 e.Handled = true;
                 break;
             default: return;

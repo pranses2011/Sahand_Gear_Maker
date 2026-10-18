@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
+using SahandGearMaker.Assembly;
 using SahandGearMaker.Domain;
 using SahandGearMaker.Exports;
 using SahandGearMaker.Geometry;
@@ -138,6 +139,16 @@ public partial class DesignerViewModel : ObservableObject
 
     /// <summary>نتیجهٔ ساخت قطعهٔ انتخابی — برای سازگاری با خروجی/نقشه (نگاشت به _builds).</summary>
     public GearBuildResult? LastBuild => _selectedPart is { } p && _builds.TryGetValue(p.Id, out var b) ? b : null;
+
+    /// <summary>آیا این قطعه ساخت معتبر دارد؟ (نقشهٔ فنی/خروجی دسته‌ای — فاز ۲)</summary>
+    public bool HasBuild(GearPart part) => _builds.ContainsKey(part.Id);
+
+    /// <summary>ساخت قطعهٔ خواسته‌شده (فاز ۲٫۲/۲٫۵).</summary>
+    public GearBuildResult? BuildOf(GearPart part) => _builds.TryGetValue(part.Id, out var b) ? b : null;
+
+    /// <summary>همهٔ قطعات + ساخت‌هایشان برای خروجی دسته‌ای (فاز ۲٫۵).</summary>
+    public IReadOnlyList<(GearPart Part, GearBuildResult Build)> BuildableParts()
+        => _project.Parts.Where(p => _builds.ContainsKey(p.Id)).Select(p => (p, _builds[p.Id])).ToList();
 
     /// <summary>آخرین وضعیت رندر برای HUD بوم (فاز ۱٫۸).</summary>
     [ObservableProperty]
@@ -636,6 +647,167 @@ public partial class DesignerViewModel : ObservableObject
         OnPropertyChanged(nameof(Variants));
     }
 
+    // ---------- مونتاژ زنده (فاز ۳) ----------
+
+    /// <summary>چرخش نمایشی یک قطعه حول محور خودش — پخش‌کنندهٔ حرکت (۳٫۴). فقط صحنه را جابه‌جا می‌کند؛ دادهٔ پارامتریک ثابت است.</summary>
+    public void SetPartDisplayRotation(GearPart part, double thetaRad)
+    {
+        part.Placement.Theta = thetaRad;
+        if (_sceneObjects.TryGetValue(part.Id, out var obj))
+            obj.Transform = new ObjectTransform(
+                new MathX.Vector3(part.Placement.X, part.Placement.Y, part.Placement.Z),
+                thetaRad,
+                part.Placement.Scale <= 0 ? 1.0 : part.Placement.Scale);
+    }
+
+    /// <summary>جابه‌جایی نمایشی یک قطعه (۳٫۲ چیدمان خودکار / حرکت شانه).</summary>
+    public void SetPartDisplayPosition(GearPart part, double x, double y, double z)
+    {
+        part.Placement.X = x;
+        part.Placement.Y = y;
+        part.Placement.Z = z;
+        SyncPartDisplay(part);
+    }
+
+    private readonly Dictionary<string, (double X, double Y, double Z)> _preExplodePositions = new();
+    private double _explodedFactor = -1;
+
+    /// <summary>نمای انفجاری (۳٫۵): کشش شعاعی قطعات از مرکز مونتاژ — ۰ = واقعی.</summary>
+    public void SetExplodedFactor(double factor)
+    {
+        if (_explodedFactor < 0 || Math.Abs(factor) < 1e-9)
+            foreach (var p in _project.Parts)
+                _preExplodePositions[p.Id] = (p.Placement.X, p.Placement.Y, p.Placement.Z);
+        _explodedFactor = Math.Clamp(factor, 0, 1);
+        foreach (var p in _project.Parts)
+        {
+            if (!_preExplodePositions.TryGetValue(p.Id, out var orig)) continue;
+            double r = Math.Sqrt(orig.X * orig.X + orig.Y * orig.Y);
+            if (r < 1e-6) continue; // قطعات مرکزی (خورشیدی) جابه‌جا نمی‌شوند
+            double k = 1 + _explodedFactor * (1.5 + 30.0 / Math.Max(10, r));
+            SetPartDisplayPosition(p, orig.X * k, orig.Y * k, orig.Z);
+        }
+    }
+
+    /// <summary>چیدمان خودکار جفت‌های تعریف‌شده (۳٫۲): فاصلهٔ محور از محاسبهٔ جفت‌سنج.</summary>
+    public string AutoLayoutMatings()
+    {
+        int applied = 0, failed = 0;
+        var byId = _project.Parts.ToDictionary(p => p.Id);
+        foreach (var m in _project.Matings)
+        {
+            if (!byId.TryGetValue(m.PartAId, out var a) || !byId.TryGetValue(m.PartBId, out var b)) { failed++; continue; }
+            var result = CheckMating(m.Kind, a, b);
+            if (result is null || !result.IsCompatible || result.CenterDistanceMm <= 0) { failed++; continue; }
+
+            // A در مبدأ می‌ماند؛ B روی محور X با فاصلهٔ محور
+            double ang = Math.Atan2(b.Placement.Y - a.Placement.Y, b.Placement.X - a.Placement.X);
+            if (double.IsNaN(ang) || a.Placement.X == b.Placement.X && a.Placement.Y == b.Placement.Y) ang = 0;
+            SetPartDisplayPosition(b,
+                a.Placement.X + result.CenterDistanceMm * Math.Cos(ang),
+                a.Placement.Y + result.CenterDistanceMm * Math.Sin(ang),
+                b.Placement.Z);
+            applied++;
+        }
+        return failed == 0
+            ? $"چیدمان خودکار: {applied} رابطه اعمال شد."
+            : $"چیدمان خودکار: {applied} اعمال، {failed} رابطه ناسازگار/ناقص.";
+    }
+
+    /// <summary>جفت‌سنجی ۱۱گانه از کتابخانهٔ آزموده (۳٫۱) — UI فقط نمایش‌گر است.</summary>
+    public static MatingCheckResult? CheckMating(MatingKind kind, GearPart a, GearPart b)
+        => kind switch
+        {
+            MatingKind.ExternalPair => SahandGearMaker.Assembly.GearPairCalculator.CheckExternalPair(a.Teeth, b.Teeth),
+            MatingKind.InternalPair => SahandGearMaker.Assembly.GearPairCalculator.CheckInternalPair(a.Teeth, b.Teeth),
+            MatingKind.RackPinion => SahandGearMaker.Assembly.GearPairCalculator.CheckRackPinion(a.Teeth, b.Teeth),
+            MatingKind.BevelPair => SahandGearMaker.Assembly.AdvancedPairCalculator.CheckBevelPair(a.Teeth, b.Teeth),
+            MatingKind.WormPair => SahandGearMaker.Assembly.AdvancedPairCalculator.CheckWormPair(a.Teeth, b.Teeth, b.Specific.WormPitchDiameterMm > 0 ? b.Specific.WormPitchDiameterMm : 40),
+            MatingKind.CrossedHelicalPair => SahandGearMaker.Assembly.AdvancedPairCalculator.CheckCrossedHelicalPair(a.Teeth, b.Teeth),
+            MatingKind.CrownPair => SahandGearMaker.Assembly.AdvancedPairCalculator.CheckCrownPair(a.Teeth, b.Teeth),
+            MatingKind.NonCircularPair => SahandGearMaker.Assembly.AdvancedPairCalculator.CheckNonCircularPair(a.Teeth, b.Teeth, a.Specific.NonCircularEccentricity),
+            MatingKind.HarmonicAssembly => SahandGearMaker.Assembly.AdvancedPairCalculator.CheckHarmonicAssembly(a.Teeth, b.Teeth),
+            MatingKind.SplineConnection => SahandGearMaker.Assembly.AdvancedPairCalculator.CheckSplineConnection(a.Teeth, b.Teeth),
+            MatingKind.HypoidPair => SahandGearMaker.Assembly.AdvancedPairCalculator.CheckHypoidPair(a.Teeth, b.Teeth, a.Specific.HypoidOffsetMm, a.Specific.BevelSpiralAngle, -a.Specific.BevelSpiralAngle),
+            _ => null,
+        };
+
+    public IReadOnlyList<MatingRelation> Matings => _project.Matings;
+
+    public void AddMating(MatingRelation relation)
+    {
+        _project.Matings.RemoveAll(m => (m.PartAId == relation.PartAId && m.PartBId == relation.PartBId)
+                                     || (m.PartAId == relation.PartBId && m.PartBId == relation.PartAId));
+        _project.Matings.Add(relation);
+        OnPropertyChanged(nameof(Matings));
+    }
+
+    public void RemoveMating(MatingRelation relation)
+    {
+        _project.Matings.Remove(relation);
+        OnPropertyChanged(nameof(Matings));
+    }
+
+    // ---------- ویزارد سیاره‌ای (۳٫۳) ----------
+
+    /// <summary>ساخت گیربکس سیاره‌ای از پارامترها — قطعات + رابطه‌ها + جای‌گذاری. null اگر هندسه ناسازگار باشد.</summary>
+    public string CreatePlanetary(int sunTeeth, int planetTeeth, int planetCount, double module, double faceWidth)
+    {
+        var design = SahandGearMaker.Assembly.PlanetaryGearsetCalculator.Design(sunTeeth, planetTeeth, planetCount,
+            module, SahandGearMaker.Assembly.PlanetaryFixedMember.Ring);
+        if (!design.GeometryFeasible)
+            return "طراحی سیاره‌ای ناسازگار است: " + string.Join("؛ ", design.Diagnostics.Select(d => d.Message));
+
+        PushUndo();
+        // خورشیدی
+        var sun = new GearPart
+        {
+            Name = "خورشیدی",
+            Family = GearFamily.ExternalSpur,
+            Teeth = new ToothParameters { Module = module, ToothCount = sunTeeth, FaceWidth = faceWidth },
+            Body = new BodyFeatures { BoreDiameter = Math.Max(4, module * 4) },
+            DisplayColor = "#DC2626",
+        };
+        AttachPart(sun, select: false);
+
+        // سیاره‌ها
+        for (int i = 0; i < planetCount; i++)
+        {
+            double ang = design.PlanetAngles.Length > i ? design.PlanetAngles[i] : 2 * Math.PI * i / planetCount;
+            var planet = new GearPart
+            {
+                Name = $"سیارهٔ {i + 1}",
+                Family = GearFamily.ExternalSpur,
+                Teeth = new ToothParameters { Module = module, ToothCount = planetTeeth, FaceWidth = faceWidth },
+                Body = new BodyFeatures { BoreDiameter = Math.Max(4, module * 4) },
+                DisplayColor = "#2563EB",
+                Placement = new Placement
+                {
+                    X = design.PlanetOrbitRadiusMm * Math.Cos(ang),
+                    Y = design.PlanetOrbitRadiusMm * Math.Sin(ang),
+                },
+            };
+            AttachPart(planet, select: false);
+            _project.Matings.Add(new MatingRelation { Kind = MatingKind.ExternalPair, PartAId = sun.Id, PartBId = planet.Id, Note = "جفت سیاره‌ای" });
+        }
+
+        // حلقهٔ داخلی
+        var ring = new GearPart
+        {
+            Name = "حلقهٔ داخلی",
+            Family = GearFamily.InternalSpur,
+            Teeth = new ToothParameters { Module = module, ToothCount = design.RingTeeth, FaceWidth = faceWidth },
+            DisplayColor = "#0D9488",
+        };
+        AttachPart(ring, select: false);
+        _project.Matings.Add(new MatingRelation { Kind = MatingKind.InternalPair, PartAId = sun.Id, PartBId = ring.Id, Note = "خورشیدی داخل حلقه" });
+
+        RebuildAll();
+        OnPropertyChanged(nameof(Matings));
+        SelectedPart = sun;
+        return $"گیربکس سیاره‌ای ساخته شد — نسبت {design.OverallRatio:0.###}: 1، {planetCount} سیاره در شعاع {design.PlanetOrbitRadiusMm:0.#}mm.";
+    }
+
     // ---------- ذخیرهٔ خودکار (فاز ۲٫۴) ----------
 
     private AutosaveService? _autosave;
@@ -659,6 +831,16 @@ public partial class DesignerViewModel : ObservableObject
     public GearProject? TryRecover(string projectPath) => new AutosaveService(projectPath).TryRecover();
 
     public void DiscardRecovery(string projectPath) => new AutosaveService(projectPath).DiscardRecovery();
+
+    /// <summary>بارگذاری پروژهٔ بازیابی‌شده در رابط (فاز ۲٫۴).</summary>
+    public void LoadRecovered(GearProject recovered)
+    {
+        _project = recovered;
+        ProjectName = recovered.Name;
+        SyncPartsFromProject();
+        RebuildAll();
+        SelectedPart = recovered.Parts.FirstOrDefault();
+    }
 
     partial void OnProjectNameChanged(string value) => _project.Name = value;
 }

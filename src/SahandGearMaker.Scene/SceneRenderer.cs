@@ -145,6 +145,31 @@ public sealed class SceneRenderer : IDisposable
             SceneOverlay.DrawWorldOverlay(_pixels, _zbuf, _pw, _ph, cam, bounds, opt);
         SceneOverlay.DrawScaleBar(_pixels, _pw, _ph, cam, bounds);
 
+        // پاره‌خط‌های اندازه‌گیری (فاز ۴٫۱) — همیشه روی همه‌چیز
+        if (opt.MeasureLines is { Count: > 0 } lines)
+        {
+            foreach (var (a, b) in lines)
+            {
+                SceneOverlay.DrawWorldLine(_pixels, _zbuf, _pw, _ph, cam, a, b, new Rgb(245, 158, 11), 2);
+                SceneOverlay.DrawWorldLine(_pixels, _zbuf, _pw, _ph, cam, a, b, new Rgb(120, 70, 0), 1);
+            }
+        }
+        if (opt.MeasureLabels is { Count: > 0 } labels)
+        {
+            foreach (var (at, label) in labels)
+            {
+                // نقطهٔ صفحه‌ای متن — پروژهٔ نقطهٔ جهان
+                var rel = at - cam.Eye;
+                double cz = Vector3.Dot(rel, cam.Forward);
+                if (cz <= 1) continue;
+                double cx = Vector3.Dot(rel, cam.Right), cy = Vector3.Dot(rel, cam.Up);
+                double inv = cam.Projection == ProjectionKind.Perspective ? 1.0 / cz : 1.0;
+                double sx = (cam.Projection == ProjectionKind.Perspective ? cam.HalfW + cx * cam.Focal * inv : cam.HalfW + cx * cam.OrthoScale);
+                double sy = (cam.Projection == ProjectionKind.Perspective ? cam.HalfH - cy * cam.Focal * inv : cam.HalfH - cy * cam.OrthoScale);
+                SceneOverlay.DrawTinyTextAt(_pixels, _pw, _ph, (int)sx, (int)sy, label, new Rgb(120, 60, 0));
+            }
+        }
+
         Downsample();
 
         // پاک‌سازی کشِ اشیاء حذف‌شده

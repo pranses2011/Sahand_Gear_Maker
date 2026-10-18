@@ -306,4 +306,49 @@ public class Phase1SceneTests
         Assert.Equal(300, cam2.Distance, 9);
         Assert.Equal(5, cam2.Target.X, 9);
     }
+
+    // ---------- فاز ۴٫۱: خط اندازه‌گیری ----------
+
+    [Fact]
+    public void MeasureLine_RendersVisibleOverlay()
+    {
+        var (r, cam) = Setup();
+        var obj = MakeGearObject();
+        var frame = cam.ComputeFrame(320, 240);
+        var a = new Vector3(-30, -20, 5);
+        var b = new Vector3(35, 25, 5);
+        r.Render(new[] { obj }, frame, new RenderOptions
+        {
+            MeasureLines = new List<(MathX.Vector3, MathX.Vector3)> { (a, b) },
+            MeasureLabels = new List<(MathX.Vector3, string)> { ((a + b) / 2, "12.5mm" ) },
+        }, 0);
+
+        // رنگ زرد اندازه‌گیری (245,158,11) باید در خروجی باشد
+        bool found = false;
+        var px = r.Output;
+        for (int i = 0; i < px.Length && !found; i += 4)
+            if (Math.Abs(px[i + 2] - 245) < 12 && Math.Abs(px[i + 1] - 158) < 25 && Math.Abs(px[i] - 11) < 40)
+                found = true;
+        Assert.True(found, "پاره‌خط اندازه‌گیری زرد رسم نشده است.");
+    }
+
+    [Fact]
+    public void ClipPlane_RoundTripsGeometryUnchanged()
+    {
+        // فاز ۴٫۲: صفحهٔ برش «نمایشی» است — هندسهٔ پارامتریک نباید تغییر کند
+        var part = new GearPart
+        {
+            Family = GearFamily.ExternalSpur,
+            Teeth = new ToothParameters { Module = 2, ToothCount = 20, FaceWidth = 12 },
+        };
+        var before = System.Text.Json.JsonSerializer.Serialize(part);
+        // رندر با برش (شبیه UI):
+        var (r, cam) = Setup();
+        var build = GearGeometryEngine.BuildPart(part);
+        var obj = new SceneObject { Id = "x", Mesh = build.Mesh, LocalBounds = build.Mesh.Bounds() };
+        var frame = cam.ComputeFrame(320, 240);
+        r.Render(new[] { obj }, frame, new RenderOptions { ClipZ = 0.0 }, 0);
+        var after = System.Text.Json.JsonSerializer.Serialize(part);
+        Assert.Equal(before, after);
+    }
 }
