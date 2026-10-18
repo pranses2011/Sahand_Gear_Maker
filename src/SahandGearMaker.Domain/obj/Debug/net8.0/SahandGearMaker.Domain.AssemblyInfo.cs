@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SahandGearMaker.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+590462f4eaeebef4238cae0ed51261c9f1dcfb95")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ff6ea9829bb70ee6940e1c8e07499109d91ad9a1")]
 [assembly: System.Reflection.AssemblyProductAttribute("SahandGearMaker.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SahandGearMaker.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
