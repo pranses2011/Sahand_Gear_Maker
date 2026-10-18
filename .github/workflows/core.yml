@@ -31,6 +31,7 @@ jobs:
           src/SahandGearMaker.Assembly
           src/SahandGearMaker.Persistence
           src/SahandGearMaker.Exports
+          src/SahandGearMaker.Drawing
 
       - name: Run unit tests
         run: dotnet test tests/SahandGearMaker.Tests --configuration Release --no-build --logger "console;verbosity=normal"

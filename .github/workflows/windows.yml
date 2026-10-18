@@ -1,0 +1,66 @@
+name: windows-build-screenshots
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    name: Build, Test & Screenshots (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore solution
+        run: dotnet restore SahandGearMaker.sln
+
+      - name: Build full solution (incl. WPF app)
+        run: dotnet build SahandGearMaker.sln --configuration Release --no-restore
+
+      - name: Run unit tests
+        run: dotnet test tests/SahandGearMaker.Tests --configuration Release --no-build --logger "console;verbosity=normal"
+
+      - name: Publish WPF app (framework-dependent)
+        run: >
+          dotnet publish src/SahandGearMaker.App/SahandGearMaker.App.csproj
+          -c Release -o publish/app
+          --framework net8.0-windows
+          -p:SelfContained=false
+          -p:PublishSingleFile=false
+
+      - name: Publish CLI
+        run: >
+          dotnet publish src/sgm-cli/sgm-cli.csproj
+          -c Release -o publish/cli
+          -p:SelfContained=false
+
+      - name: Generate real screenshots (software renderer + WPF capture)
+        run: >
+          dotnet run --project src/SahandGearMaker.Screenshots
+          --configuration Release --no-build -- screenshots
+
+      - name: Upload screenshots artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots/
+          if-no-files-found: error
+
+      - name: Upload Windows app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sahand-gear-maker-windows
+          path: publish/
+          if-no-files-found: error
+
+      - name: Upload test results summary
+        if: always()
+        run: echo "Windows build, tests, publish and screenshots completed."
