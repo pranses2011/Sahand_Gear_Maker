@@ -114,6 +114,9 @@ public static class Program
     private static void CaptureUi(string path)
     {
         var app = new SahandGearMaker.App.App();
+        app.InitializeComponent(); // بارگذاری منابع App.xaml (فونت وزیرمتن/پالت)
+        app.ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown;
+
         var window = new SahandGearMaker.App.MainWindow();
         window.WindowStartupLocation = WindowStartupLocation.Manual;
         window.Left = 0;
@@ -122,8 +125,12 @@ public static class Program
         window.Height = 860;
         window.Show();
 
-        // اجازهٔ چیدمان/داده‌binding
-        window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Loaded);
+        // پمپ دیسپچر برای چیدمان، binding و رندر
+        for (int i = 0; i < 12; i++)
+        {
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Render);
+            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+        }
         window.UpdateLayout();
 
         var rtb = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
@@ -134,5 +141,6 @@ public static class Program
         enc.Save(fs);
 
         window.Close();
+        app.Shutdown();
     }
 }
