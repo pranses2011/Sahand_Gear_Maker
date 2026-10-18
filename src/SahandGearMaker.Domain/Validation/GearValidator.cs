@@ -19,7 +19,6 @@ public static class GearValidator
     {
         ArgumentNullException.ThrowIfNull(p);
         var list = new List<GearDiagnostic>();
-        string Fam(string persian) => persian;
 
         // ورودی‌های غیرمحدود — خطای قطعی
         if (!IsFinite(p.Module) || !IsFinite(p.PressureAngle) || !IsFinite(p.HelixAngle) ||

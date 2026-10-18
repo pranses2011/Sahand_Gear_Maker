@@ -70,7 +70,7 @@ public static class CylindricalGearMeshBuilder
         b.BuildBoreWalls(body);
         b.BuildLighteningHoles(body, quality);
         b.BuildHub(body);
-        b.BuildHerringboneGap(family, teeth, quality);
+        b.BuildHerringboneGap(family, teeth);
 
         if (mesh.TriangleCount == 0)
             throw new GeometryBuildException("مش خالی ساخته شد؛ ورودی‌ها را بررسی کنید.", diags);
@@ -115,28 +115,24 @@ public static class CylindricalGearMeshBuilder
         /// <summary>شعاع مرز در زاویهٔ دلخواه — درون‌یابی خطی روی نقاط مرز (مرز نسبت به مرکز ستاره‌ای است).</summary>
         public double BoundaryRadiusAt(double theta)
         {
-            double TwoPi = 2.0 * Math.PI;
-            var pts = Boundary;
-            double t0 = pts[0].Theta;
-            double tEnd = pts[^1].Theta;
-            double span = tEnd - t0;
+            double span = Boundary[^1].Theta - Boundary[0].Theta;
 
             double local = theta;
-            while (local < t0) local += span;
-            while (local > tEnd) local -= span;
-            if (span < 1e-12) return pts[0].Radius;
+            while (local < Boundary[0].Theta) local += span;
+            while (local > Boundary[^1].Theta) local -= span;
+            if (span < 1e-12) return Boundary[0].Radius;
 
             // جست‌وجوی دودویی روی زاویه‌های صعودی
-            int lo = 0, hi = pts.Count - 1;
+            int lo = 0, hi = Boundary.Count - 1;
             while (hi - lo > 1)
             {
                 int mid = (lo + hi) / 2;
-                if (pts[mid].Theta <= local) lo = mid; else hi = mid;
+                if (Boundary[mid].Theta <= local) lo = mid; else hi = mid;
             }
-            double a = pts[lo].Theta, b = pts[hi].Theta;
-            if (b - a < 1e-12) return pts[lo].Radius;
-            double k = (local - a) / (b - a);
-            return pts[lo].Radius + (pts[hi].Radius - pts[lo].Radius) * k;
+            double a = Boundary[lo].Theta, bAng = Boundary[hi].Theta;
+            if (bAng - a < 1e-12) return Boundary[lo].Radius;
+            double k = (local - a) / (bAng - a);
+            return Boundary[lo].Radius + (Boundary[hi].Radius - Boundary[lo].Radius) * k;
         }
     }
 
@@ -249,8 +245,8 @@ public static class CylindricalGearMeshBuilder
             var ids = new List<int>(n);
             for (int i = 0; i < n; i++)
             {
-                double t = samples[i].Theta + twist;
-                ids.Add(b.Pool.Free(s, samples[i].Radius * Math.Cos(t), samples[i].Radius * Math.Sin(t)));
+                double t = samples[i].Item1 + twist;
+                ids.Add(b.Pool.Free(s, samples[i].Item2 * Math.Cos(t), samples[i].Item2 * Math.Sin(t)));
             }
             b.Pool.SetSpokeLoop(s, ids);
         }
@@ -422,11 +418,11 @@ public static class CylindricalGearMeshBuilder
         VertexPool.AnnulusZ(b.Mesh, hubInTop, hubOutTop);
     }
 
-    private static void BuildHerringboneGap(this BuilderContext b, GearFamily family, GeometrySettings q)
+    private static void BuildHerringboneGap(this BuilderContext b, GearFamily family, ToothParameters teeth)
     {
         if (family != GearFamily.ExternalHerringbone)
             return;
-        double w = b.FaceWidth;
+        double w = teeth.FaceWidth;
         double gap = Math.Clamp(0.05 * w, 0, w * 0.2);
         if (gap <= 1e-9)
             return;
