@@ -39,6 +39,19 @@ public sealed class ToothParameters
 
     /// <summary>ضریب شعاع فیلهٔ ریشه؛ سقف آن در موتور هندسی به فضای موجود محدود می‌شود.</summary>
     public double RootFilletCoefficient { get; set; } = 0.38;
+
+    /// <summary>سیستم پروفیل دندانه: اینولوت (پیش‌فرض) یا سیکلوئیدی.</summary>
+    public ProfileSystem ProfileSystem { get; set; } = ProfileSystem.Involute;
+}
+
+/// <summary>سیستم پروفیل دندانه (سند ۰۳، بخش ۴ — هر خانواده سیستم معتبر خود را دارد).</summary>
+public enum ProfileSystem
+{
+    /// <summary>پروفیل اینولوت — استاندارد انتقال توان؛ فرمول‌ها و آزمون مستقل دارد.</summary>
+    Involute,
+
+    /// <summary>پروفیل سیکلوئیدی: اپیسایکلوئید در سر + هیپوسایکلوئید در ریشه؛ متداول در ساعت‌سازی.</summary>
+    Cycloidal,
 }
 
 /// <summary>
@@ -70,4 +83,19 @@ public sealed class BodyFeatures
 
     /// <summary>عمق شیار خار از سطح داخلی بور.</summary>
     public double KeywayDepth { get; set; } = 3.0;
+
+    /// <summary>شعاع گِردی ته شیار خار (mm). صفر = انتهای تخت (مستطیلی)؛ مقدار مثبت = انتهای نیم‌دایره.</summary>
+    public double KeywayEndRadius { get; set; }
+
+    /// <summary>طول شانه (mm) — فقط برای خانوادهٔ رک/رک مارپیچ. صفر = پیش‌فرض ۱۰ گام.</summary>
+    public double RackLengthMm { get; set; }
+
+    /// <summary>پهنای گپ/شیار مرکزی چرخ‌دندهٔ جناغی (mm). صفر = جناغی پیوسته بدون گپ.</summary>
+    public double HerringboneCentralGapMm { get; set; }
+
+    /// <summary>پخ لبهٔ نوک دندانه (mm در راستای شعاعی) — صفر = بدون پخ.</summary>
+    public double TipChamferMm { get; set; }
+
+    /// <summary>پخ لبهٔ دهانهٔ بور در دو سطح روی/زیر (mm، ۴۵ درجه) — صفر = بدون پخ.</summary>
+    public double BoreChamferMm { get; set; }
 }

@@ -56,6 +56,30 @@ public enum MatingKind
 
     /// <summary>مجموعهٔ سیاره‌ای ساده.</summary>
     SimplePlanetary,
+
+    /// <summary>جفت کرم و چرخ کرم (محورهای متقاطع ۹۰ درجه).</summary>
+    WormPair,
+
+    /// <summary>جفت مارپیچ متقاطع (محورهای زاویه‌دار).</summary>
+    CrossedHelicalPair,
+
+    /// <summary>جفت مخروطی (محورهای متقاطع).</summary>
+    BevelPair,
+
+    /// <summary>جفت تاجی/پیشانی (پینیون عمود بر صفحهٔ دندانه).</summary>
+    CrownPair,
+
+    /// <summary>جفت غیرمدور بیضوی (چرخش حول کانون‌ها).</summary>
+    NonCircularPair,
+
+    /// <summary>مجموعهٔ درایو هارمونیک (موج‌ساز + فِلکسی‌پلاین + اسپلاین دایره‌ای).</summary>
+    HarmonicAssembly,
+
+    /// <summary>اتصال هزارخار (شفت خارجی + توپی داخلی).</summary>
+    SplineConnection,
+
+    /// <summary>جفت هیپوئید (محورهای موازی‌نبوده با آفست).</summary>
+    HypoidPair,
 }
 
 /// <summary>وضعیت پشتیبانی یک قابلیت (خانواده یا فرمت) — «هدف» به معنی «پیاده‌شده» نیست.</summary>

@@ -20,6 +20,9 @@ public sealed class GearPart
 
     public BodyFeatures Body { get; set; } = new();
 
+    /// <summary>پارامترهای اختصاصی خانوادهٔ پیشرفته (کرم، مخروطی، بیضوی، هارمونیک و…).</summary>
+    public FamilyParameters Specific { get; set; } = new();
+
     /// <summary>محل قرارگیری در مونتاژ: x, y بر حسب میلی‌متر و زاویهٔ چرخش اولیهٔ theta بر حسب رادیان حول محور Z.</summary>
     public Placement Placement { get; set; } = new();
 
@@ -63,6 +66,25 @@ public sealed class GearPart
             HubLength = Body.HubLength,
             KeywayWidth = Body.KeywayWidth,
             KeywayDepth = Body.KeywayDepth,
+            KeywayEndRadius = Body.KeywayEndRadius,
+            RackLengthMm = Body.RackLengthMm,
+            HerringboneCentralGapMm = Body.HerringboneCentralGapMm,
+            TipChamferMm = Body.TipChamferMm,
+            BoreChamferMm = Body.BoreChamferMm,
+        },
+        Specific = new FamilyParameters
+        {
+            RackLengthMm = Specific.RackLengthMm,
+            WormPitchDiameterMm = Specific.WormPitchDiameterMm,
+            WormThroatClearanceMm = Specific.WormThroatClearanceMm,
+            BevelShaftAngle = Specific.BevelShaftAngle,
+            BevelSpiralAngle = Specific.BevelSpiralAngle,
+            HypoidOffsetMm = Specific.HypoidOffsetMm,
+            NonCircularEccentricity = Specific.NonCircularEccentricity,
+            HarmonicWaveDeflectionMm = Specific.HarmonicWaveDeflectionMm,
+            SplineFit = Specific.SplineFit,
+            SplineBacklashMm = Specific.SplineBacklashMm,
+            SplineStandardNote = Specific.SplineStandardNote,
         },
         Placement = new Placement { X = Placement.X, Y = Placement.Y, Theta = Placement.Theta },
         DisplayColor = DisplayColor,
