@@ -22,16 +22,8 @@ jobs:
       - name: Restore
         run: dotnet restore tests/SahandGearMaker.Tests
 
-      - name: Build core libraries
-        run: >
-          dotnet build --configuration Release --no-restore
-          src/SahandGearMaker.Domain
-          src/SahandGearMaker.Math
-          src/SahandGearMaker.Geometry
-          src/SahandGearMaker.Assembly
-          src/SahandGearMaker.Persistence
-          src/SahandGearMaker.Exports
-          src/SahandGearMaker.Drawing
+      - name: Build core libraries and tests
+        run: dotnet build tests/SahandGearMaker.Tests --configuration Release --no-restore
 
       - name: Run unit tests
         run: dotnet test tests/SahandGearMaker.Tests --configuration Release --no-build --logger "console;verbosity=normal"
