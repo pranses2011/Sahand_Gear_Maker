@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <RootNamespace>SahandGearMaker.App</RootNamespace>
+    <AssemblyName>SahandGearDesigner</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>0.1.0</Version>
+    <Product>Sahand Gear Designer</Product>
+    <Company>سعید نجفی</Company>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- MVVM — MIT، نگهداری‌شده توسط تیم .NET -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <!-- آیکون‌های برداری بسته‌بندی‌شده — MIT (بدون دانلود در زمان اجرا) -->
+    <PackageReference Include="MahApps.Metro.IconPacks.Bootstrap" Version="5.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SahandGearMaker.Domain\SahandGearMaker.Domain.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Math\SahandGearMaker.Math.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Geometry\SahandGearMaker.Geometry.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Assembly\SahandGearMaker.Assembly.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Persistence\SahandGearMaker.Persistence.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Exports\SahandGearMaker.Exports.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- فونت وزیرمتن (OFL 1.1) — منبع محلی، بدون نیاز به نصب در ویندوز -->
+    <Resource Include="Assets\Fonts\Vazirmatn-Regular.ttf" />
+    <Resource Include="Assets\Fonts\Vazirmatn-Medium.ttf" />
+    <Resource Include="Assets\Fonts\Vazirmatn-Bold.ttf" />
+    <None Include="Assets\Fonts\LICENSE-OFL.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
