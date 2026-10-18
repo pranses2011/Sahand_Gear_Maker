@@ -7,6 +7,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# مجوز لازم برای کامیت خودکار اسکرین‌شات‌ها به مخزن (بدون این، پوش bot خطای 403 می‌گیرد)
+permissions:
+  contents: write
+
 jobs:
   windows:
     name: Build, Test & Screenshots (Windows)
