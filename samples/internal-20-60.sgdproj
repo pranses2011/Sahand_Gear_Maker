@@ -1,0 +1,94 @@
+{
+  "SchemaVersion": 1,
+  "Name": "نمونهٔ چرخ‌دندهٔ داخلی",
+  "CreatedUtc": "2026-10-18T03:42:59.8606564Z",
+  "ModifiedUtc": "2026-10-18T03:42:59.860672Z",
+  "DisplayUnit": 0,
+  "Parts": [
+    {
+      "Id": "e6a141e477ad4280bcc71b25274f1d8b",
+      "Name": "پینیون",
+      "Family": 0,
+      "Teeth": {
+        "ToothCount": 20,
+        "Module": 2,
+        "PressureAngle": 0.3490658503988659,
+        "HelixAngle": 0,
+        "FaceWidth": 15,
+        "ProfileShiftCoefficient": 0,
+        "BacklashAllowance": 0,
+        "AddendumCoefficient": 1,
+        "DedendumCoefficient": 1.25,
+        "RootFilletCoefficient": 0.38
+      },
+      "Body": {
+        "BoreDiameter": 8,
+        "LighteningHoleCount": 0,
+        "LighteningHoleDiameter": 8,
+        "LighteningHoleCircleRadius": 20,
+        "HubDiameter": 0,
+        "HubLength": 8,
+        "KeywayWidth": 0,
+        "KeywayDepth": 3
+      },
+      "Placement": {
+        "X": 0,
+        "Y": 0,
+        "Theta": 0
+      },
+      "DisplayColor": "#2563EB",
+      "Validation": [],
+      "GeometrySettings": {
+        "ProfileToleranceMm": 0.02,
+        "AxialSliceCount": 24
+      },
+      "Revision": 0
+    },
+    {
+      "Id": "2e7b0b5c9e8943f89526e6cddb7a79a4",
+      "Name": "حلقهٔ داخلی",
+      "Family": 3,
+      "Teeth": {
+        "ToothCount": 60,
+        "Module": 2,
+        "PressureAngle": 0.3490658503988659,
+        "HelixAngle": 0,
+        "FaceWidth": 15,
+        "ProfileShiftCoefficient": 0,
+        "BacklashAllowance": 0,
+        "AddendumCoefficient": 1,
+        "DedendumCoefficient": 1.25,
+        "RootFilletCoefficient": 0.38
+      },
+      "Body": {
+        "BoreDiameter": 0,
+        "LighteningHoleCount": 0,
+        "LighteningHoleDiameter": 8,
+        "LighteningHoleCircleRadius": 20,
+        "HubDiameter": 0,
+        "HubLength": 8,
+        "KeywayWidth": 0,
+        "KeywayDepth": 3
+      },
+      "Placement": {
+        "X": 0,
+        "Y": 0,
+        "Theta": 0
+      },
+      "DisplayColor": "#2563EB",
+      "Validation": [],
+      "GeometrySettings": {
+        "ProfileToleranceMm": 0.02,
+        "AxialSliceCount": 24
+      },
+      "Revision": 0
+    }
+  ],
+  "Matings": [
+    {
+      "Kind": 1,
+      "PartAId": "e6a141e477ad4280bcc71b25274f1d8b",
+      "PartBId": "2e7b0b5c9e8943f89526e6cddb7a79a4"
+    }
+  ]
+}

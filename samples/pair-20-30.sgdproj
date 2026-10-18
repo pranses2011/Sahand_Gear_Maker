@@ -1,0 +1,94 @@
+{
+  "SchemaVersion": 1,
+  "Name": "نمونهٔ جفت چرخ‌دنده",
+  "CreatedUtc": "2026-10-18T03:42:59.7952561Z",
+  "ModifiedUtc": "2026-10-18T03:42:59.798385Z",
+  "DisplayUnit": 0,
+  "Parts": [
+    {
+      "Id": "2be024527bca46aaa763f31c6cedd591",
+      "Name": "چرخ‌دندهٔ محرک",
+      "Family": 0,
+      "Teeth": {
+        "ToothCount": 20,
+        "Module": 2,
+        "PressureAngle": 0.3490658503988659,
+        "HelixAngle": 0,
+        "FaceWidth": 20,
+        "ProfileShiftCoefficient": 0,
+        "BacklashAllowance": 0,
+        "AddendumCoefficient": 1,
+        "DedendumCoefficient": 1.25,
+        "RootFilletCoefficient": 0.38
+      },
+      "Body": {
+        "BoreDiameter": 10,
+        "LighteningHoleCount": 0,
+        "LighteningHoleDiameter": 8,
+        "LighteningHoleCircleRadius": 20,
+        "HubDiameter": 0,
+        "HubLength": 8,
+        "KeywayWidth": 0,
+        "KeywayDepth": 3
+      },
+      "Placement": {
+        "X": 0,
+        "Y": 0,
+        "Theta": 0
+      },
+      "DisplayColor": "#2563EB",
+      "Validation": [],
+      "GeometrySettings": {
+        "ProfileToleranceMm": 0.02,
+        "AxialSliceCount": 24
+      },
+      "Revision": 0
+    },
+    {
+      "Id": "508570b244294a80aead47ccea83b3df",
+      "Name": "چرخ‌دندهٔ محرک‌شونده",
+      "Family": 0,
+      "Teeth": {
+        "ToothCount": 30,
+        "Module": 2,
+        "PressureAngle": 0.3490658503988659,
+        "HelixAngle": 0,
+        "FaceWidth": 20,
+        "ProfileShiftCoefficient": 0,
+        "BacklashAllowance": 0,
+        "AddendumCoefficient": 1,
+        "DedendumCoefficient": 1.25,
+        "RootFilletCoefficient": 0.38
+      },
+      "Body": {
+        "BoreDiameter": 12,
+        "LighteningHoleCount": 0,
+        "LighteningHoleDiameter": 8,
+        "LighteningHoleCircleRadius": 20,
+        "HubDiameter": 0,
+        "HubLength": 8,
+        "KeywayWidth": 0,
+        "KeywayDepth": 3
+      },
+      "Placement": {
+        "X": 50,
+        "Y": 0,
+        "Theta": 0
+      },
+      "DisplayColor": "#2563EB",
+      "Validation": [],
+      "GeometrySettings": {
+        "ProfileToleranceMm": 0.02,
+        "AxialSliceCount": 24
+      },
+      "Revision": 0
+    }
+  ],
+  "Matings": [
+    {
+      "Kind": 0,
+      "PartAId": "2be024527bca46aaa763f31c6cedd591",
+      "PartBId": "508570b244294a80aead47ccea83b3df"
+    }
+  ]
+}

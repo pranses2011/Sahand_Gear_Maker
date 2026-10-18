@@ -1,0 +1,49 @@
+{
+  "SchemaVersion": 1,
+  "Name": "نمونهٔ شانه",
+  "CreatedUtc": "2026-10-18T03:42:59.8616416Z",
+  "ModifiedUtc": "2026-10-18T03:42:59.8616765Z",
+  "DisplayUnit": 0,
+  "Parts": [
+    {
+      "Id": "5acb06c71eb9444085d818ed62ce1afc",
+      "Name": "شانهٔ ۱۰۰ میلی‌متری",
+      "Family": 5,
+      "Teeth": {
+        "ToothCount": 20,
+        "Module": 2,
+        "PressureAngle": 0.3490658503988659,
+        "HelixAngle": 0,
+        "FaceWidth": 18,
+        "ProfileShiftCoefficient": 0,
+        "BacklashAllowance": 0,
+        "AddendumCoefficient": 1,
+        "DedendumCoefficient": 1.25,
+        "RootFilletCoefficient": 0.38
+      },
+      "Body": {
+        "BoreDiameter": 10,
+        "LighteningHoleCount": 0,
+        "LighteningHoleDiameter": 8,
+        "LighteningHoleCircleRadius": 100,
+        "HubDiameter": 0,
+        "HubLength": 8,
+        "KeywayWidth": 0,
+        "KeywayDepth": 3
+      },
+      "Placement": {
+        "X": 0,
+        "Y": 0,
+        "Theta": 0
+      },
+      "DisplayColor": "#2563EB",
+      "Validation": [],
+      "GeometrySettings": {
+        "ProfileToleranceMm": 0.02,
+        "AxialSliceCount": 24
+      },
+      "Revision": 0
+    }
+  ],
+  "Matings": []
+}

@@ -1,0 +1,49 @@
+{
+  "SchemaVersion": 1,
+  "Name": "نمونهٔ مارپیچ با بدنهٔ کامل",
+  "CreatedUtc": "2026-10-18T03:42:59.8611103Z",
+  "ModifiedUtc": "2026-10-18T03:42:59.8612961Z",
+  "DisplayUnit": 0,
+  "Parts": [
+    {
+      "Id": "3b44ba6f319c492586281fc2ac839b72",
+      "Name": "چرخ‌دندهٔ مارپیچ",
+      "Family": 1,
+      "Teeth": {
+        "ToothCount": 24,
+        "Module": 2,
+        "PressureAngle": 0.3490658503988659,
+        "HelixAngle": 0.2618,
+        "FaceWidth": 25,
+        "ProfileShiftCoefficient": 0,
+        "BacklashAllowance": 0,
+        "AddendumCoefficient": 1,
+        "DedendumCoefficient": 1.25,
+        "RootFilletCoefficient": 0.38
+      },
+      "Body": {
+        "BoreDiameter": 12,
+        "LighteningHoleCount": 0,
+        "LighteningHoleDiameter": 8,
+        "LighteningHoleCircleRadius": 20,
+        "HubDiameter": 30,
+        "HubLength": 8,
+        "KeywayWidth": 4,
+        "KeywayDepth": 2
+      },
+      "Placement": {
+        "X": 0,
+        "Y": 0,
+        "Theta": 0
+      },
+      "DisplayColor": "#2563EB",
+      "Validation": [],
+      "GeometrySettings": {
+        "ProfileToleranceMm": 0.02,
+        "AxialSliceCount": 24
+      },
+      "Revision": 0
+    }
+  ],
+  "Matings": []
+}
