@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\src\SahandGearMaker.Assembly\SahandGearMaker.Assembly.csproj" />
     <ProjectReference Include="..\..\src\SahandGearMaker.Persistence\SahandGearMaker.Persistence.csproj" />
     <ProjectReference Include="..\..\src\SahandGearMaker.Exports\SahandGearMaker.Exports.csproj" />
+    <ProjectReference Include="..\..\src\SahandGearMaker.Drawing\SahandGearMaker.Drawing.csproj" />
   </ItemGroup>
 
 </Project>

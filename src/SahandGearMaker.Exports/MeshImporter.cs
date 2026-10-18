@@ -57,7 +57,7 @@ public static class MeshImporter
         {
             Mesh = mesh,
             SourceFileName = Path.GetFileName(path),
-            Format = ext.ToUpperInvariant(),
+            Format = ext.TrimStart('.').ToUpperInvariant(),
             Notes = notes,
         };
     }

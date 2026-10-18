@@ -275,10 +275,10 @@ public static class GearAnalysisCalculator
         double rf = r - (p.DedendumCoefficient - p.ProfileShiftCoefficient) * p.Module;
 
         // نسبت تماس عرضی جفت متقارن بدون اصلاح (فرمول مرجع):
-        // εₜ = [√(rₐ²−r_b²) − r·sin αₜ] / (π·mₜ·cos αₜ)
+        // εₜ = [2·√(rₐ²−r_b²) − 2·r·sin αₜ] / (π·mₜ·cos αₜ)
         double zMin = 2.0 / Math.Pow(Math.Sin(alphaT), 2.0);
         double cr = ra > rb + 1e-9
-            ? (Math.Sqrt(ra * ra - rb * rb) - r * Math.Sin(alphaT)) / (Math.PI * mt * Math.Cos(alphaT))
+            ? 2.0 * (Math.Sqrt(ra * ra - rb * rb) - r * Math.Sin(alphaT)) / (Math.PI * mt * Math.Cos(alphaT))
             : 0;
         double contactRatio = double.IsFinite(cr) && cr > 0 ? cr : 0;
 

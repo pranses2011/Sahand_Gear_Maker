@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <RootNamespace>SahandGearMaker.Cli</RootNamespace>
+    <AssemblyName>sgm-cli</AssemblyName>
+    <!-- خروجی اجرایی تک‌پروژه برای توزیع آسان -->
+    <PublishSingleFile Condition="'$(PublishSingleFile)' == ''">false</PublishSingleFile>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SahandGearMaker.Domain\SahandGearMaker.Domain.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Math\SahandGearMaker.Math.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Geometry\SahandGearMaker.Geometry.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Assembly\SahandGearMaker.Assembly.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Persistence\SahandGearMaker.Persistence.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Exports\SahandGearMaker.Exports.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Drawing\SahandGearMaker.Drawing.csproj" />
+  </ItemGroup>
+
+</Project>
