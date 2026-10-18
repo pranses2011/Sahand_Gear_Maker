@@ -1,0 +1,36 @@
+name: core-build-test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Build & Test (Core, Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore tests/SahandGearMaker.Tests
+
+      - name: Build core libraries
+        run: >
+          dotnet build --configuration Release --no-restore
+          src/SahandGearMaker.Domain
+          src/SahandGearMaker.Math
+          src/SahandGearMaker.Geometry
+          src/SahandGearMaker.Assembly
+          src/SahandGearMaker.Persistence
+          src/SahandGearMaker.Exports
+
+      - name: Run unit tests
+        run: dotnet test tests/SahandGearMaker.Tests --configuration Release --no-build --logger "console;verbosity=normal"
