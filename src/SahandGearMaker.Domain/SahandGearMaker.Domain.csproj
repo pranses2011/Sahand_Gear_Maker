@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <RootNamespace>SahandGearMaker.Domain</RootNamespace>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- ذخیره‌سازی/نمایش اعداد باید مستقل از culture سیستم باشد تا round-trip پروژه تضمین شود -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+</Project>
