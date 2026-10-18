@@ -52,14 +52,15 @@
             <Border Grid.Column="0" Width="190" Background="White" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,0,0,0">
                 <ListBox x:Name="NavList" Background="Transparent" BorderThickness="0"
                          SelectionChanged="NavList_SelectionChanged" Margin="8">
-                    <ListBoxItem Content="🏠 خانه" Padding="10,10" />
-                    <ListBoxItem Content="⚙ طراح چرخ‌دنده" Padding="10,10" IsSelected="True" />
-                    <ListBoxItem Content="🔗 مونتاژ" Padding="10,10" />
-                    <ListBoxItem Content="📐 نقشهٔ فنی" Padding="10,10" />
-                    <ListBoxItem Content="📦 خروجی" Padding="10,10" />
-                    <ListBoxItem Content="🛠 بررسی" Padding="10,10" />
-                    <ListBoxItem Content="✉ بازخورد" Padding="10,10" />
-                    <ListBoxItem Content="ℹ درباره" Padding="10,10" />
+                    <ListBoxItem Content="🏠 خانه" Padding="10,10" AutomationProperties.Name="خانه" />
+                    <ListBoxItem Content="⚙ طراح چرخ‌دنده" Padding="10,10" IsSelected="True" AutomationProperties.Name="طراح چرخ‌دنده" />
+                    <ListBoxItem Content="🔗 مونتاژ" Padding="10,10" AutomationProperties.Name="مونتاژ" />
+                    <ListBoxItem Content="📐 نقشهٔ فنی" Padding="10,10" AutomationProperties.Name="نقشهٔ فنی" />
+                    <ListBoxItem Content="📦 خروجی" Padding="10,10" AutomationProperties.Name="خروجی" />
+                    <ListBoxItem Content="🛠 بررسی" Padding="10,10" AutomationProperties.Name="بررسی و اندازه‌گیری" />
+                    <ListBoxItem Content="✉ بازخورد" Padding="10,10" AutomationProperties.Name="بازخورد" />
+                    <ListBoxItem Content="⚙️ تنظیمات" Padding="10,10" AutomationProperties.Name="تنظیمات" />
+                    <ListBoxItem Content="ℹ درباره" Padding="10,10" AutomationProperties.Name="درباره" />
                 </ListBox>
             </Border>
 
@@ -84,6 +85,9 @@
                 </TabItem>
                 <TabItem Header="" x:Name="TabFeedback">
                     <views:FeedbackView x:Name="FeedbackView" />
+                </TabItem>
+                <TabItem Header="" x:Name="TabSettings">
+                    <views:SettingsView x:Name="SettingsView" />
                 </TabItem>
                 <TabItem Header="" x:Name="TabAbout">
                     <views:AboutView />

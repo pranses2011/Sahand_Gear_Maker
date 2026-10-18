@@ -15,9 +15,11 @@
     <img alt="Core Build & Test" src="https://github.com/pranses2011/Sahand_Gear_Maker/actions/workflows/core.yml/badge.svg"/></a>
   <a href="https://github.com/pranses2011/Sahand_Gear_Maker/actions/workflows/windows.yml">
     <img alt="Windows Build & Screenshots" src="https://github.com/pranses2011/Sahand_Gear_Maker/actions/workflows/windows.yml/badge.svg"/></a>
+  <a href="https://github.com/pranses2011/Sahand_Gear_Maker/actions/workflows/release.yml">
+    <img alt="Release" src="https://github.com/pranses2011/Sahand_Gear_Maker/actions/workflows/release.yml/badge.svg"/></a>
   <img alt=".NET 8" src="https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white"/>
   <img alt="WPF" src="https://img.shields.io/badge/UI-WPF%20%E2%80%93%20RTL%20%D9%81%D8%A7%D8%B1%D8%B3%DB%8C-blueviolet"/>
-  <img alt="Tests" src="https://img.shields.io/badge/%D8%A2%D8%B2%D9%85%D9%88%D9%86-116%20%E2%9C%85-brightgreen"/>
+  <img alt="Tests" src="https://img.shields.io/badge/%D8%A2%D8%B2%D9%85%D9%88%D9%86-142%20%E2%9C%85-brightgreen"/>
   <img alt="License" src="https://img.shields.io/badge/%D9%85%D8%AC%D9%88%D8%B2-MIT-green"/>
   <img alt="Offline" src="https://img.shields.io/badge/%D8%A2%D9%81%D9%84%D8%A7%DB%8C%D9%86-100%25-success"/>
 </p>
@@ -53,6 +55,11 @@
 | | قابلیت | توضیح |
 |---|---|---|
 | 🧮 | **موتور هندسی واقعی** | پروفیل اینولوت با تلرانس وتر، مش‌های آب‌بند (manifold) با اعتبارسنجی حجم/توپولوژی |
+| 🖼️ | **پیش‌نمایش حرفه‌ای (نسخهٔ ۰٫۳)** | رندر موازی tile-parallel با رشتهٔ جدا، ضدپلگی SSAA×2 در سکون، سایه‌زنی گورا، گرید/محور/مقیاس گرافیکی، اینرسی دوربین، زوم به مکان‌نما، ViewCube، نماهای نام‌دار، پرسپکتیو/ارتو، انتخاب با کلیک (پیکینگ)، منوی زمینه‌ای، HUD زنده |
+| 🎛️ | **کنترل‌های شیئ** | درخت پروژه با چشم/قفل/رنگ، جابه‌جایی/چرخش/مقیاس/شفافیت عددی per-part، هایلایت انتخاب |
+| 🔗 | **مونتاژ زنده در UI** | گراف روابط ۱۱گانه با نتیجهٔ سازگاری، چیدمان خودکار، ویزارد سیاره‌ای، پخش‌کنندهٔ حرکت (سینماتیک ایدئال)، نمای انفجاری |
+| 🛠️ | **بررسی و اندازه‌گیری** | ابزار فاصله/زاویه روی بوم، صفحهٔ برش نمایشی، گزارش تحلیل هندسی، بررسی برخورد تقریبی، نمای دوم ارتوگرافیک |
+| ↩️ | **واگرد/ازنو + بازیابی** | Undo/Redo ۵۰ گامی (Ctrl+Z/Y)، ذخیرهٔ خودکار با بازیابی، پروژه‌های اخیر |
 | ⚙️ | **۱۹ خانوادهٔ چرخ‌دنده** | از ساده و مارپیچ تا کرم، مخروطی، هیپوئید، بیضوی، هارمونیک و هزارخار |
 | 🧩 | **مونتاژ و سینماتیک** | جفت/قطار/سیاره‌ای/هارمونیک با روابط مرجع و پیش‌نمایش حرکت ایدئال |
 | 📐 | **نقشهٔ فنی فارسی** | SVG و PDF با فونت تعبیه‌شده، شکل‌دهی حروف فارسی و جدول پارامتر |
@@ -124,6 +131,15 @@ flowchart LR
   <img src="docs/screenshots/ui-main.png" alt="رابط کاربری فارسی" width="820"/>
 </p>
 
+صحنه‌های موتور پیش‌نمایش جدید (نسخهٔ ۰٫۳ — چندقطعه‌ای، گرید و محور، حالت‌های نمایش و هایلایت انتخاب):
+
+| | | |
+|:---:|:---:|:---:|
+| ![صحنهٔ چندقطعه‌ای](docs/screenshots/scene-multipart.png) | ![گرید و محور](docs/screenshots/scene-grid-axes.png) | ![سیمی](docs/screenshots/scene-wireframe.png) |
+| **جفت درگیر + گرید** | **گرید + محورهای XYZ** | **حالت سیمی** |
+| ![سایه خالص](docs/screenshots/scene-shaded.png) | ![هایلایت انتخاب](docs/screenshots/scene-highlight.png) | |
+| **سایهٔ گورا** | **هایلایت انتخاب + شفافیت** | |
+
 ---
 
 ## 🏁 شروع سریع
@@ -186,8 +202,8 @@ sgm-cli import reference.stl
 ```mermaid
 flowchart TB
     subgraph UI["🖥️ SahandGearMaker.App (WPF, net8.0-windows)"]
-        V[نماها: خانه/طراح/خروجی/بازخورد/درباره]
-        R[رندرر نرم‌افزاری Z-Buffer]
+        V[نماها: خانه/طراح/مونتاژ/نقشه/خروجی/بررسی/تنظیمات/بازخورد/درباره]
+        R[بوم Viewport3D — رشتهٔ رندر جدا]
     end
     subgraph CLI["💻 sgm-cli"]
         C[خط فرمان آفلاین]
@@ -199,9 +215,11 @@ flowchart TB
         P[Persistence — sgdproj اتمی/گونه‌ها/autosave]
         E[Exports — ۷ فرمت + ورودی مش]
         DR[Drawing — نقشهٔ SVG/PDF فارسی]
+        S[Scene — رندرر موازی/پیکینگ/دوربین (۰٫۳)]
     end
     UI --> Core
     CLI --> Core
+    S --> G
     D --> G --> A2
     D --> P
     G --> E
@@ -235,6 +253,19 @@ flowchart TB
 ---
 
 ## 🗺 نقشهٔ راه — وضعیت تکمیل
+
+### نقشهٔ راه شش‌فازی نسخهٔ ۰٫۳ (ANALYSIS-AND-ROADMAP) — همهٔ فازها ✅
+
+| فاز | قابلیت | وضعیت |
+|---|---|:---:|
+| ۰ | تثبیت پایه: نسخهٔ واحد از MSBuild، کاتالوگ = منبع حقیقت UI، فعال‌سازی 3MF/AMF/DXF/SVG، رفع باگ Parts | ✅ |
+| ۱ | **پیش‌نمایش حرفه‌ای**: رشتهٔ رندر جدا + tile-parallel + SSAA + برش نزدیک + گورا + گرید/محور + پیکینگ + اینرسی + ViewCube + نماهای نام‌دار + کنترل‌های شیئ کامل | ✅ |
+| ۲ | اتصال کامل موتور به UI: ۱۹ خانواده در فرم، نقشهٔ فنی، مدل مرجع، گونه‌ها، خروجی دسته‌ای | ✅ |
+| ۳ | مونتاژ زنده: گراف روابط، چیدمان خودکار، ویزارد سیاره‌ای، پخش‌کنندهٔ حرکت، نمای انفجاری، دستیار نسبت | ✅ |
+| ۴ | ابزار بررسی: اندازه‌گیری فاصله/زاویه، صفحهٔ برش، تحلیل هندسی، برخورد تقریبی، نمای دوم ارتو | ✅ |
+| ۵ | UX و انتشار: Undo/Redo، تنظیمات، فایل‌های اخیر، کتابخانهٔ نمونه، انتشار پرتابل + Release خودکار | ✅ |
+
+### بسته‌های نسخهٔ ۰٫۲ (پیش‌تر کامل)
 
 | بسته | قابلیت | وضعیت |
 |---|---|:---:|
@@ -270,10 +301,12 @@ flowchart TB
 dotnet test tests/SahandGearMaker.Tests -c Release
 ```
 
-- **۱۱۶ آزمون xUnit** — همه سبز در CI لینوکس و ویندوز:
+- **۱۴۲ آزمون xUnit** — همه سبز در CI لینوکس و ویندوز:
   - دامنه: اعتبارسنجی، ارقام هندسی، آب‌بندی مش، بازتولیدپذیری، fuzz، جفت‌ها،
     سینماتیک (ویلیس/شانه/هارمونیک)، نقشهٔ فنی، شکل‌دهی فارسی، گونه‌ها،
-    autosave، round-trip ورودی/خروجی، خروجی دسته‌ای.
+    autosave، round-trip ورودی/خروجی، خروجی دسته‌ای،
+    **موتور صحنهٔ ۰٫۳** (برش نزدیک، culling، پیکینگ، دوربین انیمیت، SSAA،
+    کارایی مش سنگین < ۵۰۰ms، خط اندازه‌گیری، بقا هندسه با صفحهٔ برش).
 - **معیار آب‌بندی**: هر یال جهت‌دار دقیقاً ۲ بار؛ حجم علامت‌دار مثبت.
 - **اعتبارسنجی پس از نوشتن**: همهٔ صادرکننده‌ها فایل را دوباره می‌خوانند.
 

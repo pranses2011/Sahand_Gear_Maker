@@ -64,3 +64,30 @@ jobs:
       - name: Upload test results summary
         if: always()
         run: echo "Windows build, tests, publish and screenshots completed."
+
+      # فاز ۱/۵: بازگرداندن اسکرین‌شات‌های واقعی به مخزن — README همیشه به‌روز بماند
+      - name: Commit screenshots back to repo
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout main
+          git pull origin main
+          $changed = $false
+          Get-ChildItem screenshots/*.png | ForEach-Object {
+            $target = "docs/screenshots/$($_.Name)"
+            if (-not (Test-Path $target) -or (Get-FileHash $_.FullName).Hash -ne (Get-FileHash $target).Hash) {
+              Copy-Item $_.FullName $target -Force
+              $changed = $true
+            }
+          }
+          if ($changed) {
+            git add docs/screenshots
+            git commit -m "docs: اسکرین‌شات‌های واقعی برنامه — به‌روزرسانی خودکار از CI ویندوزی [skip ci]"
+            git push origin main
+          } else {
+            Write-Host "No screenshot changes."
+          }

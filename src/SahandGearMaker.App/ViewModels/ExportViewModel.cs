@@ -22,6 +22,9 @@ public partial class ExportViewModel : ObservableObject
     /// <summary>دسترسی عمومی به طراح برای خروجی دسته‌ای (فاز ۲٫۵).</summary>
     public DesignerViewModel Designer => _designer;
 
+    /// <summary>واحد پیش‌فرض از تنظیمات (فاز ۵٫۲) — اگر true، خروجی تازه با inch شروع می‌شود.</summary>
+    public bool DefaultUnitInch { get; set; }
+
     public ObservableCollection<ExportFormatOption> Formats { get; } = new()
     {
         new("STL-BINARY", "STL باینری (چاپ سه‌بعدی)", true, "مش مثلثی؛ واحد در گزارش همراه ذکر می‌شود"),

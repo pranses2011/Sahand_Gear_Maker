@@ -1,0 +1,95 @@
+name: release-windows
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Portable Build & Release (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore solution
+        run: dotnet restore SahandGearMaker.sln
+
+      - name: Build & Test
+        run: |
+          dotnet build SahandGearMaker.sln --configuration Release --no-restore
+          dotnet test tests/SahandGearMaker.Tests/SahandGearMaker.Tests.csproj --configuration Release --no-build --logger "console;verbosity=normal"
+
+      - name: Publish WPF app (self-contained portable)
+        run: >
+          dotnet publish src/SahandGearMaker.App/SahandGearMaker.App.csproj
+          -c Release -o publish/app
+          --framework net8.0-windows
+          -p:SelfContained=true
+          -p:RuntimeIdentifier=win-x64
+          -p:PublishSingleFile=false
+          -p:IncludeNativeLibrariesForSelfExtract=true
+
+      - name: Publish CLI (self-contained)
+        run: >
+          dotnet publish src/sgm-cli/sgm-cli.csproj
+          -c Release -o publish/cli
+          -p:SelfContained=true
+          -p:RuntimeIdentifier=win-x64
+
+      - name: Generate real screenshots
+        run: >
+          dotnet run --project src/SahandGearMaker.Screenshots
+          --configuration Release --no-build -- screenshots
+
+      - name: Package portable zip
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}"
+          if ([string]::IsNullOrEmpty($ver)) { $ver = "dev" }
+          Compress-Archive -Path publish/app/* -DestinationPath "SahandGearDesigner-$ver-win-x64-portable.zip" -Force
+          Compress-Archive -Path publish/cli/* -DestinationPath "sgm-cli-$ver-win-x64.zip" -Force
+          Get-ChildItem *.zip
+
+      - name: Upload screenshots artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-screenshots
+          path: screenshots/
+          if-no-files-found: error
+
+      - name: Create GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Sahand Gear Designer ${{ github.ref_name }}"
+          body: |
+            ## طراح چرخ‌دندهٔ سهند — Sahand Gear Designer ${{ github.ref_name }}
+
+            بستهٔ پرتابل ویندوز (x64) — بدون نیاز به نصب و بدون نیاز به اینترنت.
+            فایل ZIP را باز کنید و `SahandGearDesigner.exe` را اجرا کنید.
+
+            ### محتویات
+            - `SahandGearDesigner-*-win-x64-portable.zip` — برنامهٔ کامل (WPF، آفلاین، فونت فارسی داخل بسته)
+            - `sgm-cli-*-win-x64.zip` — ابزار خط فرمان (ساخت/خروجی/آزمون از ترمینال)
+
+            ### ویژگی‌های کلیدی
+            - ۱۹ خانوادهٔ چرخ‌دنده با مش آب‌بند و ۱۴۲+ آزمون خودکار
+            - پیش‌نمایش سه‌بعدی حرفه‌ای: رندر موازی، ضدپلگی SSAA، گرید/محور، انتخاب با کلیک، اینرسی دوربین، ViewCube
+            - مونتاژ زنده و سینماتیک ایدئال + ویزارد سیاره‌ای + نمای انفجاری
+            - نقشهٔ فنی فارسی (SVG/PDF) + خروجی STL/OBJ/PLY/GLB/3MF/AMF/DXF
+            - کاملاً آفلاین — هیچ داده‌ای ارسال نمی‌شود
+
+            نسخهٔ کامل تغییرات: [docs/ANALYSIS-AND-ROADMAP.md](docs/ANALYSIS-AND-ROADMAP.md)
+          files: |
+            SahandGearDesigner-*-win-x64-portable.zip
+            sgm-cli-*-win-x64.zip
+          generate_release_notes: true

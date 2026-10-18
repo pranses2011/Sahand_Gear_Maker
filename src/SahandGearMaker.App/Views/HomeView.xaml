@@ -66,6 +66,20 @@
                             Click="CreateSample_Click" />
                 </StackPanel>
             </GroupBox>
+
+            <!-- کتابخانهٔ نمونه‌ها (فاز ۵٫۳) -->
+            <GroupBox Header="کتابخانهٔ نمونه‌ها" Margin="0,10,0,0">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource MutedText}" FontSize="11.5" TextWrapping="Wrap"
+                               Text="پروژه‌های آمادهٔ آموزشی — هر کدام در تب طراح باز می‌شود و کاملاً قابل ویرایش است." />
+                    <UniformGrid Columns="2" Margin="0,8,0,0">
+                        <Button Content="⚙ جفت خارجی ۲۰×۳۰" Style="{StaticResource SecondaryButton}" Margin="0,0,4,4" Click="SamplePair_Click" FontSize="12" />
+                        <Button Content="◯ چرخ‌دندهٔ داخلی" Style="{StaticResource SecondaryButton}" Margin="4,0,0,4" Click="SampleInternal_Click" FontSize="12" />
+                        <Button Content="🌀 مارپیچ ۲۴ دندانه" Style="{StaticResource SecondaryButton}" Margin="0,0,4,4" Click="SampleHelical_Click" FontSize="12" />
+                        <Button Content="▤ شانه و پینیون" Style="{StaticResource SecondaryButton}" Margin="4,0,0,4" Click="SampleRack_Click" FontSize="12" />
+                    </UniformGrid>
+                </StackPanel>
+            </GroupBox>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

@@ -26,6 +26,8 @@ public partial class MainWindow : Window
         DrawingView.Bind(this);
         ExportView.Bind(Export);
         InspectView.Bind(this);
+        SettingsView.Bind(this);
+        _settings = AppSettings.Load();
 
         StatusText.Text = "آماده";
 
@@ -36,7 +38,7 @@ public partial class MainWindow : Window
 
         // نگهداشت دوره‌ای: ذخیرهٔ خودکار
         _maintenanceTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
-        _maintenanceTimer.Tick += (_, _) => Designer.TickAutosave();
+        _maintenanceTimer.Tick += (_, _) => { if (_autosaveEnabled) Designer.TickAutosave(); };
         _maintenanceTimer.Start();
 
         Loaded += (_, _) => PromptRecoveryIfNeeded();
@@ -62,6 +64,7 @@ public partial class MainWindow : Window
         if (idx == 3) DrawingView.Refresh();          // نقشهٔ فنی
         if (idx == 2) AssemblyView.Refresh();         // مونتاژ
         if (idx == 5) InspectView.Refresh();          // بررسی
+        if (idx == 7) SettingsView.Refresh();         // تنظیمات
     }
 
     private void BtnNew_Click(object sender, RoutedEventArgs e)
@@ -134,6 +137,24 @@ public partial class MainWindow : Window
     {
         var part = Designer.Parts.FirstOrDefault(p => p.Id == id);
         if (part is not null) Designer.SelectedPart = part;
+    }
+
+    // ---------- تنظیمات (فاز ۵٫۲) ----------
+
+    private AppSettings _settings = new();
+    private bool _autosaveEnabled = true;
+
+    /// <summary>پیش‌فرض‌های نمایش بوم‌ها از تنظیمات.</summary>
+    public void ApplyViewportDefaults(bool grid, bool axes)
+    {
+        DesignerViewport?.ApplyDisplayDefaults(grid, axes);
+    }
+
+    /// <summary>روشن/خاموش کردن ذخیرهٔ خودکار از تنظیمات.</summary>
+    public void SetAutosaveEnabled(bool enabled)
+    {
+        if (enabled) Designer.EnableAutosave();
+        _autosaveEnabled = enabled;
     }
 
     /// <summary>بازکردن مسیر پروژه از فهرست «پروژه‌های اخیر» و پرش به تب طراح (فاز ۵٫۳).</summary>

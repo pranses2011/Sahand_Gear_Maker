@@ -242,6 +242,25 @@ public partial class ViewportControl : UserControl, IDisposable
         }
     }
 
+    /// <summary>تم بوم — رنگ پس‌زمینه (فاز ۵٫۲).</summary>
+    public void SetCanvasBackground(Rgb bg)
+    {
+        _bgColor = bg;
+        _dirty = true;
+        _wake.Set();
+    }
+
+    private Rgb _bgColor = new(0xEA, 0xEE, 0xF4);
+
+    /// <summary>پیش‌فرض‌های نمایش (فاز ۵٫۲: از تنظیمات).</summary>
+    public void ApplyDisplayDefaults(bool showGrid, bool showAxes)
+    {
+        _showGrid = showGrid;
+        _showAxes = showAxes;
+        _dirty = true;
+        _wake.Set();
+    }
+
     // ---------- رشتهٔ رندر ----------
 
     private void StartRenderThread()
@@ -290,6 +309,7 @@ public partial class ViewportControl : UserControl, IDisposable
                     ShowAxes = _showAxes,
                     HighlightId = _highlightId,
                     ClipZ = _clipZ,
+                    Background = _bgColor,
                 };
                 // پاره‌خط‌های اندازه‌گیری (۴٫۱)
                 var measureCopy = _measurePoints.ToList();
