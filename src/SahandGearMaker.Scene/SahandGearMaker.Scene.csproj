@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <RootNamespace>SahandGearMaker.Scene</RootNamespace>
+    <Description>موتور پیش‌نمایش سه‌بعدی نرم‌افزاری برنامه — فاز ۱ نقشهٔ راه: رسترایز موازی، ضدپلگی، برش صفحهٔ نزدیک، سایه‌زنی گورا، گرید/محور، پیکینگ و دوربین انیمیت‌شونده. بدون WPF تا روی لینوکس هم آزموده شود.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SahandGearMaker.Math\SahandGearMaker.Math.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Geometry\SahandGearMaker.Geometry.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -29,6 +29,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "sgm-cli", "src\sgm-cli\sgm-
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SahandGearMaker.Screenshots", "src\SahandGearMaker.Screenshots\SahandGearMaker.Screenshots.csproj", "{4AC5B87F-3DF0-4CF5-AF1D-2E570F49F1A0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SahandGearMaker.Scene", "src\SahandGearMaker.Scene\SahandGearMaker.Scene.csproj", "{439B60F9-A068-451C-A577-969CCFDA7B77}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -82,6 +84,10 @@ Global
 		{4AC5B87F-3DF0-4CF5-AF1D-2E570F49F1A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4AC5B87F-3DF0-4CF5-AF1D-2E570F49F1A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4AC5B87F-3DF0-4CF5-AF1D-2E570F49F1A0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{439B60F9-A068-451C-A577-969CCFDA7B77}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{439B60F9-A068-451C-A577-969CCFDA7B77}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{439B60F9-A068-451C-A577-969CCFDA7B77}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{439B60F9-A068-451C-A577-969CCFDA7B77}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{7B5FD9C5-FB95-431C-A9AD-91A06FDA559F} = {D33AAA82-6BB7-4D9F-88A2-73A77E0651E3}
@@ -95,5 +101,6 @@ Global
 		{D217FDE7-A61C-486B-AEED-739DA651CC77} = {D33AAA82-6BB7-4D9F-88A2-73A77E0651E3}
 		{9E43B519-4808-4A33-8565-521BF061246A} = {D33AAA82-6BB7-4D9F-88A2-73A77E0651E3}
 		{4AC5B87F-3DF0-4CF5-AF1D-2E570F49F1A0} = {D33AAA82-6BB7-4D9F-88A2-73A77E0651E3}
+		{439B60F9-A068-451C-A577-969CCFDA7B77} = {D33AAA82-6BB7-4D9F-88A2-73A77E0651E3}
 	EndGlobalSection
 EndGlobal
