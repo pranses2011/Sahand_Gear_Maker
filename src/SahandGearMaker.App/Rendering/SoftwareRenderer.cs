@@ -123,7 +123,7 @@ public sealed class SoftwareRenderer
             var p = verts[i] - eye;
             double camX = Vector3.Dot(p, right);
             double camY = Vector3.Dot(p, up);
-            double camZ = -Vector3.Dot(p, forward); // به سمت جلو مثبت
+            double camZ = Vector3.Dot(p, forward); // به سمت جلو مثبت (علامت اصلاح شد — forward بردار نگاه است)
             double invZ = camZ > 1e-6 ? 1.0 / camZ : double.NaN;
             projected[i] = (
                 _halfW + camX * focal * invZ,
