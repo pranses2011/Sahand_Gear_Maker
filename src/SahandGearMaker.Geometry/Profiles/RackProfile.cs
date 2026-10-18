@@ -81,22 +81,19 @@ public sealed class RackProfile : IProfileGenerator
     }
 
     /// <summary>
-    /// نقاط مرز دوبعدی دکارتی (برای سازندهٔ مش شانه) — CCW حول ماده.
-    /// ترتیب: کف → راست → خط ریشه + دندانه‌ها (رو به چپ) → چپ.
+    /// نقاط مرز دندانه‌دار (رویهٔ بالای شانه) — CCW از لبهٔ راست تا لبهٔ چپ.
+    /// شامل دیواره‌های جانبی و کف نمی‌شود؛ سازندهٔ مش خودشان را می‌سازد.
     /// </summary>
-    public List<(double X, double Y)> BoundaryXY(double backlash = 0.0)
+    public List<(double X, double Y)> BoundaryXY()
     {
-        var pts = new List<(double, double)>(_toothCount * 8 + 8);
+        var pts = new List<(double, double)>(_toothCount * 8 + 4);
         double half = _length / 2.0;
-        double rootY = -_thickness;
+        double rootY = 0;
         double tipY = _addendum;
         double dx = _dedendum * Math.Tan(_flankAngle);
 
-        // شروع: پایین-راست، پادساعتگرد
-        pts.Add((half, rootY));
-        pts.Add((half, 0));
-
         double cursor = half;
+        pts.Add((cursor, rootY));
         while (cursor - _pitch >= -half - 1e-9)
         {
             double xc = cursor - _pitch / 2.0;
@@ -109,7 +106,7 @@ public sealed class RackProfile : IProfileGenerator
             rootLeft = Math.Max(rootLeft, -half);
 
             if (rootRight < cursor - 1e-9)
-                pts.Add((rootRight, rootY)); // ادامهٔ ریشه تا پای پهلو
+                pts.Add((rootRight, rootY));
             if (rootRight < half)
             {
                 pts.Add((Math.Min(tipRight, half), tipY));
@@ -118,9 +115,7 @@ public sealed class RackProfile : IProfileGenerator
             }
             cursor = rootLeft;
         }
-
-        pts.Add((-half, 0));
-        pts.Add((-half, rootY));
+        pts.Add((cursor, rootY));
         return pts;
     }
 }
