@@ -1,12 +1,16 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Text.Json;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
 using SahandGearMaker.Domain;
 using SahandGearMaker.Exports;
 using SahandGearMaker.Geometry;
+using SahandGearMaker.MathX;
 using SahandGearMaker.Persistence;
+using SahandGearMaker.Scene;
 
 namespace SahandGearMaker.App.ViewModels;
 
@@ -26,29 +30,100 @@ public partial class DiagnosticViewModel : ObservableObject
     };
 }
 
+/// <summary>مدل نمایش هر قطعه در درخت پروژه (فاز ۱٫۲۱) — با وضعیت نمایش/قفل/رنگ.</summary>
+public partial class PartNodeViewModel : ObservableObject
+{
+    public required GearPart Part { get; init; }
+    public string Id => Part.Id;
+    public string Name => Part.Name;
+
+    public bool Visible
+    {
+        get => Part.DisplayVisible;
+        set
+        {
+            if (Part.DisplayVisible != value)
+            {
+                Part.DisplayVisible = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(EyeIcon));
+            }
+        }
+    }
+
+    public bool Locked
+    {
+        get => Part.DisplayLocked;
+        set
+        {
+            if (Part.DisplayLocked != value)
+            {
+                Part.DisplayLocked = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(LockIcon));
+            }
+        }
+    }
+
+    public string EyeIcon => Visible ? "👁" : "🚫";
+    public string LockIcon => Locked ? "🔒" : "🔓";
+    public string ColorHex => Part.DisplayColor;
+    public string StatusBadge => Part.Validation.Any(v => v.Severity == Severity.Error) ? "⛔"
+        : Part.Validation.Any(v => v.Severity == Severity.Warning) ? "⚠" : "✓";
+
+    public void Refresh() => OnPropertyChanged(string.Empty);
+}
+
 /// <summary>
-/// مدل نمایش طراح پارامتریک — برش عمودی اصلی برنامه (سند ۰۲، بخش ۶.۲).
-/// ورودی نامعتبر، پیام قابل‌فهم می‌دهد و UI نمی‌ریزد.
+/// مدل نمایش طراح پارامتریک — نسخهٔ فازهای ۱ تا ۵ نقشهٔ راه:
+///  - ساخت همهٔ قطعات (صحنهٔ چندقطعه‌ای) نه فقط انتخابی؛
+///  - Rebuild لغوپذیر با debounce ۲۵۰ms (۱٫۱۱)؛
+///  - کنترل‌های شیئ: رنگ/شفافیت/نمایش/قفل/جای‌گذاری (۱٫۲۰–۱٫۲۳)؛
+///  - نماهای نام‌دار (۱٫۱۶)، مدل مرجع (۲٫۳)، گونه‌ها (۲٫۴)،
+///  - واگرد/ازنو اسنپ‌شات‌محور (۵٫۱) و ذخیرهٔ خودکار (۲٫۴).
+/// ورودی نامعتبر پیام قابل‌فهم می‌دهد و UI نمی‌ریزد.
 /// </summary>
 public partial class DesignerViewModel : ObservableObject
 {
     private GearProject _project = new() { Name = "پروژهٔ بدون نام" };
     private GearPart? _selectedPart;
-    private GearBuildResult? _lastBuild;
 
-    /// <summary>
-    /// نمونهٔ یکتای مجموعهٔ قطعات (فاز ۰٫۴ — رفع Q2): پیش از این هر بار خوانده‌شدن Parts
-    /// یک ObservableCollection جدید ساخته می‌شد و bindingهای قدیمی از همگام‌سازی می‌افتادند.
-    /// </summary>
+    /// <summary>مش/نتیجهٔ ساخت همهٔ قطعات بر اساس شناسهٔ پایدار (صحنهٔ چندقطعه‌ای — فاز ۱٫۱۰).</summary>
+    private readonly Dictionary<string, GearBuildResult> _builds = new();
+    private readonly Dictionary<string, SceneObject> _sceneObjects = new();
+    private readonly List<SceneObject> _referenceObjects = new();
+
+    private CancellationTokenSource? _rebuildCts;
+    private DispatcherTimer? _debounceTimer;
+
+    /// <summary>نمونهٔ یکتای مجموعهٔ قطعات (فاز ۰٫۴ — رفع Q2).</summary>
     private readonly ObservableCollection<GearPart> _parts;
+    private readonly ObservableCollection<PartNodeViewModel> _partNodes;
 
     public ObservableCollection<GearPart> Parts => _parts;
+    public ObservableCollection<PartNodeViewModel> PartNodes => _partNodes;
+
+    /// <summary>همهٔ اشیاء صحنه: قطعات + مدل‌های مرجع (برای رندر/پیکینگ).</summary>
+    public IReadOnlyList<SceneObject> SceneSnapshot()
+    {
+        var list = new List<SceneObject>(_sceneObjects.Count + _referenceObjects.Count);
+        foreach (var kv in _sceneObjects)
+            if (kv.Value is { Visible: true } or { Visible: false }) list.Add(kv.Value);
+        list.AddRange(_referenceObjects);
+        return list;
+    }
 
     private void SyncPartsFromProject()
     {
         _parts.Clear();
+        _partNodes.Clear();
+        _sceneObjects.Clear();
+        _builds.Clear();
         foreach (var p in _project.Parts)
+        {
             _parts.Add(p);
+            _partNodes.Add(new PartNodeViewModel { Part = p });
+        }
         OnPropertyChanged(nameof(Parts));
     }
 
@@ -61,21 +136,23 @@ public partial class DesignerViewModel : ObservableObject
     [ObservableProperty]
     private string? _currentFilePath;
 
-    /// <summary>مش آخرین ساخت موفق برای پیش‌نمایش/خروجی.</summary>
-    public GearBuildResult? LastBuild => _lastBuild;
+    /// <summary>نتیجهٔ ساخت قطعهٔ انتخابی — برای سازگاری با خروجی/نقشه (نگاشت به _builds).</summary>
+    public GearBuildResult? LastBuild => _selectedPart is { } p && _builds.TryGetValue(p.Id, out var b) ? b : null;
 
-    public IReadOnlyList<GearFamily> SupportedFamilies { get; } = new[]
-    {
-        GearFamily.ExternalSpur,
-        GearFamily.ExternalHelical,
-        GearFamily.ExternalHerringbone,
-        GearFamily.InternalSpur,
-        GearFamily.Rack,
-    };
+    /// <summary>آخرین وضعیت رندر برای HUD بوم (فاز ۱٫۸).</summary>
+    [ObservableProperty]
+    private string _hudText = string.Empty;
+
+    /// <summary>همهٔ ۱۹ خانواده — فاز ۲٫۱: کاتالوگ منبع حقیقت است.</summary>
+    public IReadOnlyList<GearFamily> SupportedFamilies { get; } =
+        Enum.GetValues<GearFamily>().Where(CapabilityCatalog.BuildsGeometry).ToArray();
+
+    // ---------- ساخت/بازآرایی ----------
 
     public DesignerViewModel()
     {
         _parts = new ObservableCollection<GearPart>(_project.Parts);
+        _partNodes = new ObservableCollection<PartNodeViewModel>();
         AddPartCommand.Execute(null); // شروع با یک قطعهٔ نمونه
     }
 
@@ -87,8 +164,12 @@ public partial class DesignerViewModel : ObservableObject
         CurrentFilePath = null;
         SyncPartsFromProject();
         SelectedPart = null;
-        _lastBuild = null;
         Diagnostics.Clear();
+        _referenceObjects.Clear();
+        _undoStack.Clear();
+        _redoStack.Clear();
+        OnPropertyChanged(nameof(CanUndo));
+        OnPropertyChanged(nameof(CanRedo));
     }
 
     [RelayCommand]
@@ -101,24 +182,31 @@ public partial class DesignerViewModel : ObservableObject
             CheckFileExists = true,
         };
         if (dlg.ShowDialog() != true) return;
+        OpenPath(dlg.FileName);
+    }
 
+    public bool OpenPath(string path)
+    {
         try
         {
-            _project = ProjectFile.Load(dlg.FileName);
+            _project = ProjectFile.Load(path);
             ProjectName = _project.Name;
-            CurrentFilePath = dlg.FileName;
+            CurrentFilePath = path;
             SyncPartsFromProject();
+            RebuildAll();
             SelectedPart = _project.Parts.FirstOrDefault();
+            RecentFilesService.Remember(path, _project.Name);
+            return true;
         }
         catch (Exception ex)
         {
-            Diagnostics.Clear();
             Diagnostics.Add(new DiagnosticViewModel
             {
                 Severity = Severity.Error,
                 Code = "SGM-UI-OPEN",
                 Message = $"بازکردن پروژه ناموفق بود: {ex.Message}",
             });
+            return false;
         }
     }
 
@@ -148,8 +236,10 @@ public partial class DesignerViewModel : ObservableObject
         try
         {
             _project.Name = ProjectName;
+            _project.ModifiedUtc = DateTime.UtcNow;
             ProjectFile.Save(_project, path);
             CurrentFilePath = path;
+            RecentFilesService.Remember(path, _project.Name);
         }
         catch (Exception ex)
         {
@@ -162,41 +252,12 @@ public partial class DesignerViewModel : ObservableObject
         }
     }
 
-    /// <summary>افزودن قطعهٔ ازپیش‌ساخته به پروژه و فهرست (فاز ۰٫۴ — همگام با نمونهٔ یکتای Parts).</summary>
-    public void AttachPart(GearPart part)
-    {
-        ArgumentNullException.ThrowIfNull(part);
-        _project.Parts.Add(part);
-        _parts.Add(part);
-    }
-
-    /// <summary>بارگذاری پروژه از مسیر داده‌شده (برای فایل‌های اخیر)؛ خطا پیام امن می‌دهد.</summary>
-    public bool OpenPath(string path)
-    {
-        try
-        {
-            _project = ProjectFile.Load(path);
-            ProjectName = _project.Name;
-            CurrentFilePath = path;
-            SyncPartsFromProject();
-            SelectedPart = _project.Parts.FirstOrDefault();
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Diagnostics.Add(new DiagnosticViewModel
-            {
-                Severity = Severity.Error,
-                Code = "SGM-UI-OPEN",
-                Message = $"بازکردن پروژه ناموفق بود: {ex.Message}",
-            });
-            return false;
-        }
-    }
+    // ---------- مدیریت قطعات ----------
 
     [RelayCommand]
     private void AddPart()
     {
+        PushUndo();
         var part = new GearPart
         {
             Name = $"چرخ‌دندهٔ {Parts.Count + 1}",
@@ -204,16 +265,32 @@ public partial class DesignerViewModel : ObservableObject
         };
         _project.Parts.Add(part);
         _parts.Add(part);
+        _partNodes.Add(new PartNodeViewModel { Part = part });
         SelectedPart = part;
+    }
+
+    /// <summary>افزودن قطعهٔ ازپیش‌ساخته (نمونه‌ها/ویزارذ مونتاژ).</summary>
+    public void AttachPart(GearPart part, bool select = true)
+    {
+        ArgumentNullException.ThrowIfNull(part);
+        _project.Parts.Add(part);
+        _parts.Add(part);
+        _partNodes.Add(new PartNodeViewModel { Part = part });
+        if (select) SelectedPart = part;
     }
 
     [RelayCommand]
     private void RemovePart(GearPart? part)
     {
         if (part is null) return;
+        PushUndo();
         _project.Parts.Remove(part);
         _project.Matings.RemoveAll(m => m.PartAId == part.Id || m.PartBId == part.Id);
         _parts.Remove(part);
+        var node = _partNodes.FirstOrDefault(n => n.Id == part.Id);
+        if (node is not null) _partNodes.Remove(node);
+        _builds.Remove(part.Id);
+        _sceneObjects.Remove(part.Id);
         if (ReferenceEquals(SelectedPart, part)) SelectedPart = _project.Parts.FirstOrDefault();
     }
 
@@ -221,9 +298,20 @@ public partial class DesignerViewModel : ObservableObject
     private void DuplicatePart(GearPart? part)
     {
         if (part is null) return;
+        PushUndo();
+        // کپی کنار اصلی — جابه‌جایی کوچک برای دیده‌شدن
         var copy = part.Clone(part.Name + " (کپی)");
+        copy.Placement = new Placement
+        {
+            X = part.Placement.X + 60,
+            Y = part.Placement.Y,
+            Z = part.Placement.Z,
+            Theta = part.Placement.Theta,
+            Scale = part.Placement.Scale,
+        };
         _project.Parts.Add(copy);
         _parts.Add(copy);
+        _partNodes.Add(new PartNodeViewModel { Part = copy });
         SelectedPart = copy;
     }
 
@@ -233,39 +321,68 @@ public partial class DesignerViewModel : ObservableObject
         set
         {
             if (SetProperty(ref _selectedPart, value))
-                Rebuild();
+            {
+                OnPropertyChanged(nameof(LastBuild));
+                if (value is not null) ScheduleRebuild(value);
+            }
         }
     }
 
-    /// <summary>بازسازی هندسهٔ قطعهٔ انتخابی و نمایش پیام‌ها — تغییر پارامتر این را صدا می‌زند.</summary>
+    // ---------- ساخت هندسه (لغوپذیر + debounce — فاز ۱٫۱۱) ----------
+
+    /// <summary>بازسازی هندسهٔ قطعهٔ انتخابی — با debounce ۲۵۰ms؛ تغییرات سریع پشت‌سرهم یک ساخت می‌شوند.</summary>
     public void Rebuild()
     {
-        Diagnostics.Clear();
-        if (_selectedPart is null) { _lastBuild = null; return; }
+        if (_selectedPart is { } p) ScheduleRebuild(p);
+    }
 
+    public void ScheduleRebuild(GearPart part)
+    {
+        ArgumentNullException.ThrowIfNull(part);
+        _debounceTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _debounceTimer.Stop();
+        _debounceTimer.Tick -= DebounceTick;
+        _debounceTimer.Tick += DebounceTick;
+        _pendingRebuild = part;
+        _debounceTimer.Start();
+    }
+
+    private GearPart? _pendingRebuild;
+
+    private void DebounceTick(object? sender, EventArgs e)
+    {
+        _debounceTimer!.Stop();
+        if (_pendingRebuild is { } part && _project.Parts.Contains(part))
+            RebuildPartNow(part);
+    }
+
+    /// <summary>ساخت فوری یک قطعه (روی رشتهٔ UI — موتور هندسی سریع است؛ سقف ایمنی برای مش‌های سنگین).</summary>
+    public void RebuildPartNow(GearPart part)
+    {
         try
         {
-            var result = GearGeometryEngine.BuildPart(_selectedPart);
-            _lastBuild = result;
-            _selectedPart.Validation = result.Diagnostics.ToList();
-            foreach (var d in result.Diagnostics)
-                Diagnostics.Add(new DiagnosticViewModel { Code = d.Code, Severity = d.Severity, Message = d.Message });
+            var result = GearGeometryEngine.BuildPart(part);
+            _builds[part.Id] = result;
+            part.Validation = result.Diagnostics.ToList();
+            var node = _partNodes.FirstOrDefault(n => n.Id == part.Id);
+            node?.Refresh();
+            UpdateSceneObject(part, result.Mesh);
         }
         catch (GeometryBuildException gex)
         {
-            _lastBuild = null;
+            _builds.Remove(part.Id);
+            _sceneObjects.Remove(part.Id);
+            part.Validation = gex.Diagnostics.ToList();
+            var node = _partNodes.FirstOrDefault(n => n.Id == part.Id);
+            node?.Refresh();
             foreach (var d in gex.Diagnostics)
                 Diagnostics.Add(new DiagnosticViewModel { Code = d.Code, Severity = d.Severity, Message = d.Message });
-            Diagnostics.Add(new DiagnosticViewModel
-            {
-                Severity = Severity.Error,
-                Code = "SGM-UI-BUILD",
-                Message = gex.Message,
-            });
+            Diagnostics.Add(new DiagnosticViewModel { Severity = Severity.Error, Code = "SGM-UI-BUILD", Message = gex.Message });
         }
         catch (Exception ex)
         {
-            _lastBuild = null;
+            _builds.Remove(part.Id);
+            _sceneObjects.Remove(part.Id);
             Diagnostics.Add(new DiagnosticViewModel
             {
                 Severity = Severity.Error,
@@ -273,7 +390,317 @@ public partial class DesignerViewModel : ObservableObject
                 Message = $"ساخت هندسه با خطا متوقف شد: {ex.Message}",
             });
         }
+        OnPropertyChanged(nameof(LastBuild));
+        Rebuilt?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>رخداد «صحنه تغییر کرد» — بوم/مونتاژ گوش می‌دهند و دوباره رندر می‌کنند.</summary>
+    public event EventHandler? Rebuilt;
+
+    /// <summary>بازسازی همهٔ قطعات (بارگذاری پروژه/الحاق دسته‌ای).</summary>
+    public void RebuildAll()
+    {
+        Diagnostics.Clear();
+        foreach (var p in _project.Parts.ToList())
+            RebuildPartNow(p);
+    }
+
+    private void UpdateSceneObject(GearPart part, TriMesh mesh)
+    {
+        if (!_sceneObjects.TryGetValue(part.Id, out var obj))
+        {
+            obj = new SceneObject
+            {
+                Id = part.Id,
+                Name = part.Name,
+                Mesh = mesh,
+                LocalBounds = mesh.Bounds(),
+            };
+            _sceneObjects[part.Id] = obj;
+        }
+        else if (!ReferenceEquals(obj.Mesh, mesh))
+        {
+            obj.Mesh = mesh;
+            obj.LocalBounds = mesh.Bounds();
+            obj.VertexNormals = null;
+        }
+        obj.Name = part.Name;
+        obj.Transform = new ObjectTransform(
+            new MathX.Vector3(part.Placement.X, part.Placement.Y, part.Placement.Z),
+            part.Placement.Theta,
+            part.Placement.Scale <= 0 ? 1.0 : part.Placement.Scale);
+        obj.Color = Rgb.FromHex(part.DisplayColor);
+        obj.Opacity = part.DisplayOpacity;
+        obj.Visible = part.DisplayVisible;
+        obj.Locked = part.DisplayLocked;
+        obj.EnsureVertexNormals();
+    }
+
+    /// <summary>همگام‌سازی خواص نمایشی یک قطعه با شیء صحنه‌اش (پس از ویرایش در پنل شیئ).</summary>
+    public void SyncPartDisplay(GearPart part)
+    {
+        if (_sceneObjects.TryGetValue(part.Id, out var obj))
+        {
+            obj.Name = part.Name;
+            obj.Transform = new ObjectTransform(
+                new MathX.Vector3(part.Placement.X, part.Placement.Y, part.Placement.Z),
+                part.Placement.Theta,
+                part.Placement.Scale <= 0 ? 1.0 : part.Placement.Scale);
+            obj.Color = Rgb.FromHex(part.DisplayColor);
+            obj.Opacity = part.DisplayOpacity;
+            obj.Visible = part.DisplayVisible;
+            obj.Locked = part.DisplayLocked;
+        }
+        var node = _partNodes.FirstOrDefault(n => n.Id == part.Id);
+        node?.Refresh();
+    }
+
+    // ---------- کنترل‌های شیئ (فاز ۱C) ----------
+
+    public void SetPartPlacement(GearPart part, double x, double y, double z, double thetaDeg, double scale)
+    {
+        part.Placement = new Placement
+        {
+            X = x,
+            Y = y,
+            Z = z,
+            Theta = UnitConverter.DegToRad(thetaDeg),
+            Scale = Math.Clamp(scale, 0.05, 20),
+        };
+        SyncPartDisplay(part);
+    }
+
+    public void SetPartColor(GearPart part, string hex)
+    {
+        part.DisplayColor = hex.StartsWith('#') ? hex : "#" + hex;
+        SyncPartDisplay(part);
+    }
+
+    public void SetPartOpacity(GearPart part, double opacity)
+    {
+        part.DisplayOpacity = Math.Clamp(opacity, 0.05, 1.0);
+        SyncPartDisplay(part);
+    }
+
+    // ---------- نماهای نام‌دار (فاز ۱٫۱۶) ----------
+
+    public IReadOnlyList<SavedView> SavedViews => _project.SavedViews;
+
+    public void SaveCurrentView(string name, double az, double el, double dist,
+        double tx, double ty, double tz, bool perspective)
+    {
+        _project.SavedViews.RemoveAll(v => v.Name == name);
+        _project.SavedViews.Add(new SavedView
+        {
+            Name = name,
+            Azimuth = az,
+            Elevation = el,
+            Distance = dist,
+            TargetX = tx,
+            TargetY = ty,
+            TargetZ = tz,
+            Projection = perspective ? ViewProjection.Perspective : ViewProjection.Orthographic,
+        });
+        OnPropertyChanged(nameof(SavedViews));
+    }
+
+    public bool DeleteView(string name)
+    {
+        var removed = _project.SavedViews.RemoveAll(v => v.Name == name) > 0;
+        if (removed) OnPropertyChanged(nameof(SavedViews));
+        return removed;
+    }
+
+    // ---------- مدل مرجع (فاز ۲٫۳) ----------
+
+    /// <summary>ورود مدل مرجع STL/OBJ/PLY — به‌صورت شبح شفاف؛ هرگز چرخ‌دندهٔ پارامتریک تفسیر نمی‌شود.</summary>
+    public string ImportReference(string path)
+    {
+        var refMesh = MeshImporter.Import(path);
+        var obj = new SceneObject
+        {
+            Id = "ref-" + Guid.NewGuid().ToString("N"),
+            Name = $"مرجع: {refMesh.SourceFileName}",
+            Mesh = refMesh.Mesh,
+            LocalBounds = refMesh.Mesh.Bounds(),
+            IsReference = true,
+            Color = new Rgb(0x94, 0xA3, 0xB8),
+            Opacity = 0.35,
+        };
+        obj.EnsureVertexNormals();
+        _referenceObjects.Add(obj);
+        Rebuilt?.Invoke(this, EventArgs.Empty);
+        return refMesh.SourceFileName + (refMesh.Notes.Count > 0
+            ? $" — توجه: {string.Join("؛ ", refMesh.Notes)}" : "");
+    }
+
+    public void RemoveLastReference()
+    {
+        if (_referenceObjects.Count > 0)
+        {
+            _referenceObjects.RemoveAt(_referenceObjects.Count - 1);
+            Rebuilt?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public int ReferenceCount => _referenceObjects.Count;
+
+    // ---------- واگرد/ازنو (فاز ۵٫۱) ----------
+
+    private readonly List<string> _undoStack = new();
+    private readonly List<string> _redoStack = new();
+    private const int UndoLimit = 50;
+    private static readonly JsonSerializerOptions SnapshotOptions = new() { WriteIndented = false };
+
+    public bool CanUndo => _undoStack.Count > 0;
+    public bool CanRedo => _redoStack.Count > 0;
+
+    /// <summary>اسنپ‌شات وضعیت فعلی روی پشتهٔ واگرد — پیش از هر جهش ساختاری/پارامتری.</summary>
+    public void PushUndo()
+    {
+        _undoStack.Add(SerializeSnapshot());
+        if (_undoStack.Count > UndoLimit) _undoStack.RemoveAt(0);
+        _redoStack.Clear();
+        OnPropertyChanged(nameof(CanUndo));
+        OnPropertyChanged(nameof(CanRedo));
+    }
+
+    private string SerializeSnapshot() => JsonSerializer.Serialize(_project, SnapshotOptions);
+
+    private void RestoreSnapshot(string json)
+    {
+        var restored = JsonSerializer.Deserialize<GearProject>(json, SnapshotOptions)
+            ?? throw new InvalidOperationException("بازیابی اسنپ‌شات ناموفق بود.");
+        _project = restored;
+        ProjectName = restored.Name;
+        SyncPartsFromProject();
+        RebuildAll();
+        SelectedPart = restored.Parts.FirstOrDefault();
+    }
+
+    [RelayCommand]
+    private void Undo()
+    {
+        if (_undoStack.Count == 0) return;
+        _redoStack.Add(SerializeSnapshot());
+        RestoreSnapshot(_undoStack[^1]);
+        _undoStack.RemoveAt(_undoStack.Count - 1);
+        OnPropertyChanged(nameof(CanUndo));
+        OnPropertyChanged(nameof(CanRedo));
+    }
+
+    [RelayCommand]
+    private void Redo()
+    {
+        if (_redoStack.Count == 0) return;
+        _undoStack.Add(SerializeSnapshot());
+        RestoreSnapshot(_redoStack[^1]);
+        _redoStack.RemoveAt(_redoStack.Count - 1);
+        OnPropertyChanged(nameof(CanUndo));
+        OnPropertyChanged(nameof(CanRedo));
+    }
+
+    // ---------- گونه‌ها (فاز ۲٫۴) ----------
+
+    private List<GearVariant> _variants = new();
+
+    public IReadOnlyList<GearVariant> Variants => _variants;
+
+    public void RegisterVariant(string name, string? notes = null)
+    {
+        _variants.Add(VariantManager.Capture(_project, name, notes));
+        OnPropertyChanged(nameof(Variants));
+    }
+
+    public void ApplyVariant(GearVariant variant)
+    {
+        PushUndo();
+        VariantManager.Apply(_project, variant);
+        ProjectName = _project.Name;
+        SyncPartsFromProject();
+        RebuildAll();
+        OnPropertyChanged(nameof(Variants));
+    }
+
+    public IReadOnlyList<VariantDiff> CompareVariants(int indexA, int indexB)
+        => VariantManager.Compare(_variants[indexA], _variants[indexB]);
+
+    public void SaveVariants(string path)
+    {
+        VariantFile.Save(_variants, path);
+    }
+
+    public void LoadVariants(string path)
+    {
+        _variants = VariantFile.Load(path);
+        OnPropertyChanged(nameof(Variants));
+    }
+
+    // ---------- ذخیرهٔ خودکار (فاز ۲٫۴) ----------
+
+    private AutosaveService? _autosave;
+
+    /// <summary>فعال‌سازی ذخیرهٔ خودکار برای مسیر پروژهٔ فعلی (هر ۲ دقیقه؛ فایل اصلی دست نمی‌خورد).</summary>
+    public void EnableAutosave()
+    {
+        _autosave = CurrentFilePath is null ? null : new AutosaveService(CurrentFilePath);
+    }
+
+    /// <summary>اگر زمانش رسیده باشد ذخیرهٔ خودکار می‌کند — از تایمر پنجرهٔ اصلی صدا زده می‌شود.</summary>
+    public void TickAutosave()
+    {
+        if (_autosave is null) return;
+        _project.Name = ProjectName;
+        _autosave.TryAutosave(_project, DateTime.UtcNow);
+    }
+
+    public bool HasRecoveryFile(string projectPath) => new AutosaveService(projectPath).HasRecovery;
+
+    public GearProject? TryRecover(string projectPath) => new AutosaveService(projectPath).TryRecover();
+
+    public void DiscardRecovery(string projectPath) => new AutosaveService(projectPath).DiscardRecovery();
+
     partial void OnProjectNameChanged(string value) => _project.Name = value;
+}
+
+/// <summary>
+/// فایل‌های اخیر (فاز ۵٫۳) — در %APPDATA%/SahandGearDesigner/recent.json؛
+/// فقط مسیر و نام — هیچ دادهٔ طراحی ارسال/ذخیرهٔ بیرونی نمی‌شود.
+/// </summary>
+public static class RecentFilesService
+{
+    private sealed record RecentEntry(string Path, string Title, DateTime Utc);
+
+    private static string StorePath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "SahandGearDesigner", "recent.json");
+
+    public static void Remember(string path, string title)
+    {
+        try
+        {
+            var list = LoadInternal();
+            list.RemoveAll(r => string.Equals(r.Path, path, StringComparison.OrdinalIgnoreCase));
+            list.Insert(0, new RecentEntry(path, title, DateTime.UtcNow));
+            if (list.Count > 10) list.RemoveRange(10, list.Count - 10);
+            Directory.CreateDirectory(Path.GetDirectoryName(StorePath)!);
+            File.WriteAllText(StorePath, JsonSerializer.Serialize(list));
+        }
+        catch (IOException) { /* دیسک در دسترس نیست — بی‌صدا رد می‌شود */ }
+        catch (UnauthorizedAccessException) { }
+    }
+
+    public static IReadOnlyList<(string Path, string Title)> List()
+        => LoadInternal().Select(r => (r.Path, r.Title)).ToList();
+
+    private static List<RecentEntry> LoadInternal()
+    {
+        try
+        {
+            if (File.Exists(StorePath))
+                return JsonSerializer.Deserialize<List<RecentEntry>>(File.ReadAllText(StorePath)) ?? new();
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { }
+        return new List<RecentEntry>();
+    }
 }

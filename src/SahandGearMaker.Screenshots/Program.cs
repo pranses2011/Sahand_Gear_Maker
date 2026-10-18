@@ -6,14 +6,14 @@ using System.Windows.Media.Imaging;
 using SahandGearMaker.Domain;
 using SahandGearMaker.Geometry;
 using SahandGearMaker.MathX;
-using SahandGearMaker.Rendering;
+using SahandGearMaker.Scene;
 
 namespace SahandGearMaker.Screenshots;
 
 /// <summary>
-/// ابزار تولید اسکرین‌شات واقعی برنامه — رندر سه‌بعدی CPU (رندرر نرم‌افزاری خود برنامه)
-/// برای همهٔ خانواده‌ها + کپچر نمای رابط WPF. خروجی: PNG در پوشهٔ داده‌شده.
-/// فقط برای مستندسازی؛ هیچ داده‌ای ارسال نمی‌شود.
+/// ابزار تولید اسکرین‌شات واقعی برنامه — فاز ۱: رندر صحنه با موتور جدید (کتابخانهٔ Scene)
+/// برای همهٔ خانواده‌ها + صحنه‌های چندقطعه‌ای/گرید/حالت‌ها/هایلایت + کپچر نمای رابط WPF.
+/// خروجی: PNG در پوشهٔ داده‌شده. فقط برای مستندسازی؛ هیچ داده‌ای ارسال نمی‌شود.
 /// </summary>
 public static class Program
 {
@@ -24,7 +24,7 @@ public static class Program
         Directory.CreateDirectory(outDir);
         int failed = 0;
 
-        // ---------- ۱) رندر سه‌بعدی خانواده‌ها با رندرر خود برنامه ----------
+        // ---------- ۱) رندر سه‌بعدی خانواده‌ها با موتور جدید (فاز ۱) ----------
         (string FileName, string Title, GearFamily Family, Action<ToothParameters, BodyFeatures, FamilyParameters> Setup)[] shots =
         {
             ("gear-external-spur", "چرخ‌دندهٔ خارجی مستقیم", GearFamily.ExternalSpur, (t, b, s) => { t.Module = 2.5; t.ToothCount = 24; t.FaceWidth = 16; b.BoreDiameter = 10; }),
@@ -49,7 +49,9 @@ public static class Program
                 var part = new GearPart { Name = title, Family = family };
                 setup(part.Teeth, part.Body, part.Specific);
                 var result = GearGeometryEngine.BuildPart(part);
-                RenderMeshPng(Path.Combine(outDir, fileName + ".png"), result.Mesh, part.DisplayColor);
+                RenderScenePng(Path.Combine(outDir, fileName + ".png"),
+                    new[] { MakeObject("solo", result.Mesh, part.DisplayColor) },
+                    grid: false, axes: false);
                 Console.WriteLine($"[موفق] {fileName}.png — {result.Mesh.TriangleCount:N0} مثلث");
             }
             catch (Exception ex)
@@ -59,7 +61,74 @@ public static class Program
             }
         }
 
-        // ---------- ۲) کپچر رابط کاربری (WPF) ----------
+        // ---------- ۲) صحنه‌های فاز ۱ (پذیرش فاز ۱: ۵ اسکرین‌شات جدید) ----------
+        try
+        {
+            // الف) صحنهٔ چندقطعه‌ای: جفت خارجی درگیر + قطر گام درست
+            var pinion = new GearPart { Name = "پینیون", Family = GearFamily.ExternalSpur,
+                Teeth = new ToothParameters { Module = 2.5, ToothCount = 20, FaceWidth = 16 }, Body = new BodyFeatures { BoreDiameter = 10 } };
+            var wheel = new GearPart { Name = "چرخ بزرگ", Family = GearFamily.ExternalSpur,
+                Teeth = new ToothParameters { Module = 2.5, ToothCount = 36, FaceWidth = 16 }, Body = new BodyFeatures { BoreDiameter = 16 } };
+            var bp = GearGeometryEngine.BuildPart(pinion);
+            var bw = GearGeometryEngine.BuildPart(wheel);
+            double rp = 2.5 * 20 / 2.0, rw = 2.5 * 36 / 2.0;
+            var objs = new[]
+            {
+                MakeObject("pinion", bp.Mesh, "#2563EB", x: -rp, theta: 0),
+                MakeObject("wheel", bw.Mesh, "#0D9488", x: rp + 0.5, theta: Math.PI / 20 + Math.PI / 36 * 0), // چرخش فاز تماس
+            };
+            objs[1].Transform = new ObjectTransform(new Vector3(rp + 0.2, 0, 0), Math.PI / 20, 1.0);
+            RenderScenePng(Path.Combine(outDir, "scene-multipart.png"), objs, grid: true, axes: true);
+            Console.WriteLine("[موفق] scene-multipart.png");
+        }
+        catch (Exception ex) { failed++; Console.WriteLine($"[ناموفق] scene-multipart: {ex.Message}"); }
+
+        try
+        {
+            // ب) گرید + محورها (فاز ۱٫۷)
+            var part = new GearPart { Name = "grid", Family = GearFamily.ExternalHelical,
+                Teeth = new ToothParameters { Module = 2.5, ToothCount = 28, FaceWidth = 22, HelixAngle = UnitConverter.DegToRad(24) },
+                Body = new BodyFeatures { BoreDiameter = 10, LighteningHoleCount = 5, LighteningHoleDiameter = 7, LighteningHoleCircleRadius = 22 } };
+            var build = GearGeometryEngine.BuildPart(part);
+            RenderScenePng(Path.Combine(outDir, "scene-grid-axes.png"),
+                new[] { MakeObject("g", build.Mesh, "#2563EB") }, grid: true, axes: true);
+            Console.WriteLine("[موفق] scene-grid-axes.png");
+        }
+        catch (Exception ex) { failed++; Console.WriteLine($"[ناموفق] scene-grid-axes: {ex.Message}"); }
+
+        try
+        {
+            // ج) حالت‌های نمایش: سیمی و سایه خالص
+            var part = new GearPart { Name = "modes", Family = GearFamily.ExternalSpur,
+                Teeth = new ToothParameters { Module = 2, ToothCount = 32, FaceWidth = 14 }, Body = new BodyFeatures { BoreDiameter = 12 } };
+            var build = GearGeometryEngine.BuildPart(part);
+            RenderScenePng(Path.Combine(outDir, "scene-wireframe.png"),
+                new[] { MakeObject("w", build.Mesh, "#334155") }, grid: false, axes: false, mode: DisplayMode.Wireframe);
+            RenderScenePng(Path.Combine(outDir, "scene-shaded.png"),
+                new[] { MakeObject("s", build.Mesh, "#2563EB") }, grid: false, axes: false, mode: DisplayMode.Shaded);
+            Console.WriteLine("[موفق] scene-wireframe.png + scene-shaded.png");
+        }
+        catch (Exception ex) { failed++; Console.WriteLine($"[ناموفق] scene-modes: {ex.Message}"); }
+
+        try
+        {
+            // د) هایلایت انتخاب + شفافیت (فاز ۱٫۱۹/۱٫۲۲)
+            var a = new GearPart { Name = "a", Family = GearFamily.ExternalSpur,
+                Teeth = new ToothParameters { Module = 2, ToothCount = 24, FaceWidth = 14 }, Body = new BodyFeatures { BoreDiameter = 8 } };
+            var b2 = new GearPart { Name = "b", Family = GearFamily.InternalSpur,
+                Teeth = new ToothParameters { Module = 2, ToothCount = 60, FaceWidth = 12 }, Body = new BodyFeatures() };
+            var ba = GearGeometryEngine.BuildPart(a);
+            var bb = GearGeometryEngine.BuildPart(b2);
+            var hl = MakeObject("a", ba.Mesh, "#2563EB");
+            var ghost = MakeObject("b", bb.Mesh, "#94A3B8");
+            ghost.Opacity = 0.45;
+            RenderScenePng(Path.Combine(outDir, "scene-highlight.png"),
+                new[] { ghost, hl }, grid: true, axes: true, highlightId: "a");
+            Console.WriteLine("[موفق] scene-highlight.png");
+        }
+        catch (Exception ex) { failed++; Console.WriteLine($"[ناموفق] scene-highlight: {ex.Message}"); }
+
+        // ---------- ۳) کپچر رابط کاربری (WPF) ----------
         try
         {
             CaptureUi(Path.Combine(outDir, "ui-main.png"));
@@ -74,40 +143,57 @@ public static class Program
         return failed == 0 ? 0 : 2;
     }
 
-    /// <summary>رندر مش با رندرر نرم‌افزاری خود برنامه و ذخیرهٔ PNG.</summary>
-    private static void RenderMeshPng(string path, TriMesh mesh, string colorHex)
+    private static SceneObject MakeObject(string id, TriMesh mesh, string colorHex,
+        double x = 0, double y = 0, double theta = 0)
+    {
+        var obj = new SceneObject
+        {
+            Id = id,
+            Name = id,
+            Mesh = mesh,
+            LocalBounds = mesh.Bounds(),
+            Color = Rgb.FromHex(colorHex),
+            Transform = new ObjectTransform(new Vector3(x, y, 0), theta, 1.0),
+        };
+        obj.EnsureVertexNormals();
+        return obj;
+    }
+
+    /// <summary>رندر صحنه با موتور جدید (SSAA×2 + گورا) و ذخیرهٔ PNG — فاز ۱.</summary>
+    private static void RenderScenePng(string path, SceneObject[] objects, bool grid, bool axes,
+        DisplayMode mode = DisplayMode.ShadedWithEdges, string? highlightId = null)
     {
         const int W = 1000, H = 760;
-        var renderer = new SoftwareRenderer(W, H);
-        renderer.Clear(248, 250, 252);
+        var renderer = new SceneRenderer();
+        renderer.Resize(W, H, 2); // SSAA×2 — مثل CI در سکون
 
-        var (min, max) = mesh.Bounds();
-        var center = new Vector3(
-            (min.X + max.X) / 2,
-            (min.Y + max.Y) / 2,
-            (min.Z + max.Z) / 2);
-        double radius = Math.Max(
-            Math.Max(max.X - min.X, max.Y - min.Y),
-            max.Z - min.Z) / 2;
-        double distance = Math.Max(30, radius * 3.2);
+        var camera = new SceneCamera();
+        var bounds = SceneRenderer.CombinedBounds(objects);
+        double size = Math.Max(1, Math.Max(
+            bounds.Max.X - bounds.Min.X,
+            Math.Max(bounds.Max.Y - bounds.Min.Y, bounds.Max.Z - bounds.Min.Z)));
+        camera.SetView(UnitConverter.DegToRad(38), UnitConverter.DegToRad(24), size * 2.6,
+            new Vector3(
+                (bounds.Min.X + bounds.Max.X) / 2,
+                (bounds.Min.Y + bounds.Max.Y) / 2,
+                (bounds.Min.Z + bounds.Max.Z) / 2), animate: false);
 
-        var camera = new OrbitCamera
+        var frame = camera.ComputeFrame(W, H);
+        var stats = renderer.Render(objects, frame, new SahandGearMaker.Scene.RenderOptions
         {
-            Target = center,
-            Distance = distance,
-            Azimuth = UnitConverter.DegToRad(38),
-            Elevation = UnitConverter.DegToRad(22),
-        };
-
-        var color = (Color)ColorConverter.ConvertFromString(colorHex);
-        renderer.Render(mesh, camera, SoftwareRenderer.DisplayMode.ShadedWithEdges, color);
+            Mode = mode,
+            ShowGrid = grid,
+            ShowAxes = axes,
+            HighlightId = highlightId,
+        }, 0);
 
         var bmp = new WriteableBitmap(W, H, 96, 96, PixelFormats.Bgra32, null);
-        renderer.Blit(bmp);
+        bmp.WritePixels(new Int32Rect(0, 0, W, H), renderer.Output.ToArray(), W * 4, 0);
         var enc = new PngBitmapEncoder();
         enc.Frames.Add(BitmapFrame.Create(bmp));
         using var fs = new FileStream(path, FileMode.Create);
         enc.Save(fs);
+        _ = stats;
     }
 
     /// <summary>کپچر پنجرهٔ اصلی برنامه با RTB (بدون نمایش روی صفحه).</summary>
@@ -125,11 +211,12 @@ public static class Program
         window.Height = 860;
         window.Show();
 
-        // پمپ دیسپچر برای چیدمان، binding و رندر
-        for (int i = 0; i < 12; i++)
+        // پمپ دیسپچر برای چیدمان، binding و رندر + زمان برای رشتهٔ رندر بوم (فاز ۱)
+        for (int i = 0; i < 40; i++)
         {
             window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Render);
             window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+            Thread.Sleep(25);
         }
         window.UpdateLayout();
 

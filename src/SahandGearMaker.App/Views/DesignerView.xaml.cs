@@ -1,51 +1,88 @@
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
+using SahandGearMaker.App.Controls;
 using SahandGearMaker.App.ViewModels;
 using SahandGearMaker.Domain;
-using SahandGearMaker.Rendering;
-using SahandGearMaker.Exports;
-using Key = System.Windows.Input.Key;
+using SahandGearMaker.Persistence;
+using SahandGearMaker.Scene;
 
 namespace SahandGearMaker.App.Views;
 
 /// <summary>
-/// نمای طراح: فرم پارامتر، بوم سه‌بعدی و درخت پروژه (سند ۰۲، بخش ۶).
-/// اعداد در فیلدهای چپ‌به‌راست نمایش می‌یابند تا با RTL مخلوط نشوند (سند ۰۵، بخش ۶).
+/// نمای طراح — نسخهٔ فازهای ۱ و ۲ نقشهٔ راه:
+/// بوم حرفه‌ای (ViewportControl)، درخت پروژه با چشم/قفل/رنگ، پنل جای‌گذاری عددی،
+/// نماهای نام‌دار، فرم پارامترهای اختصاصی هر ۱۹ خانواده (شرطی) و کیفیت مش.
+/// اعداد در فیلدهای چپ‌به‌راست نمایش می‌یابند (سند ۰۵، بخش ۶).
 /// </summary>
 public partial class DesignerView : UserControl
 {
     private MainWindow? _main;
     private DesignerViewModel VM => _main!.Designer;
-    private OrbitCamera _camera = new();
-    private readonly System.Windows.Threading.DispatcherTimer? _renderTimer;
-    private bool _renderQueued;
-    private bool _dragging;
-    private Point _lastMouse;
-    private SoftwareRenderer.DisplayMode _mode = SoftwareRenderer.DisplayMode.ShadedWithEdges;
+    private bool _syncing;
 
     public DesignerView()
     {
         InitializeComponent();
-        Loaded += (_, _) => QueueRender();
-        SizeChanged += (_, _) => QueueRender();
     }
 
     public void Bind(MainWindow main)
     {
         _main = main;
 
-        FamilyCombo.ItemsSource = VM.SupportedFamilies.Select(f => L.Get($"Family.{f}")).ToList();
-        PartsList.ItemsSource = VM.Parts;
-        DiagnosticsList.ItemsSource = VM.Diagnostics;
-        VM.PropertyChanged += (_, _) => Dispatcher.Invoke(() => { SyncFromPart(); QueueRender(); });
+        FamilyCombo.ItemsSource = VM.SupportedFamilies.Select(f =>
+        {
+            var info = CapabilityCatalog.GearFamilies.First(x => x.Key == f.ToString());
+            return $"{info.PersianTitle}";
+        }).ToList();
 
-        // انتخاب اولین قطعه و همگام‌سازی اولیه
+        PartsList.ItemsSource = VM.PartNodes;
+        DiagnosticsList.ItemsSource = VM.Diagnostics;
+        VM.PropertyChanged += OnVmPropertyChanged;
+        VM.Rebuilt += (_, _) => RefreshScene();
+
+        Viewport.PickRequested += Viewport_PickRequested;
+        Viewport.FrameObjectRequested += (_, id) => Viewport.FrameObject(id);
+        Viewport.HideObjectRequested += (_, id) => HidePart(id);
+        Viewport.ShowAllRequested += (_, _) => ShowAllParts();
+        Viewport.LockObjectRequested += (_, id) => ToggleLock(id);
+        Viewport.DuplicateObjectRequested += (_, id) => DuplicateById(id);
+        Viewport.DeleteObjectRequested += (_, id) => DeleteById(id);
+        Viewport.ColorObjectRequested += (_, id) => EditColor(id);
+        Viewport.OpacityObjectRequested += (_, id) => EditOpacity(id);
+        Viewport.ToggleFullscreenRequested += (_, _) => ToggleFullscreen();
+
         if (VM.Parts.Count > 0 && VM.SelectedPart is null)
             VM.SelectedPart = VM.Parts[0];
         SyncFromPart();
+        RefreshScene();
+    }
+
+    private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            if (e.PropertyName is nameof(DesignerViewModel.SelectedPart) or nameof(DesignerViewModel.Variants))
+                SyncFromPart();
+            RefreshScene();
+        });
+    }
+
+    // ---------- صحنه ----------
+
+    private void RefreshScene()
+    {
+        if (_main is null) return;
+        Viewport.UpdateScene(VM.SceneSnapshot(), VM.SelectedPart?.Id);
+        RefreshViewsList();
+    }
+
+    private void RefreshViewsList()
+    {
+        if (_main is null) return;
+        ViewsList.ItemsSource = VM.SavedViews.ToList();
     }
 
     // ---------- فرم ↔ مدل ----------
@@ -54,23 +91,48 @@ public partial class DesignerView : UserControl
     {
         if (_main is null) return;
         var p = VM.SelectedPart;
-        if (p is null) return;
+        _syncing = true;
+        try
+        {
+            if (p is null)
+            {
+                PartName.Text = "";
+                ToothCount.Text = Module.Text = PressureAngle.Text = HelixAngle.Text = FaceWidth.Text = "";
+                BoreDiameter.Text = KeywayWidth.Text = HubDiameter.Text = LighteningHoles.Text = "";
+                PlaceX.Text = PlaceY.Text = PlaceZ.Text = PlaceTheta.Text = PlaceScale.Text = PlaceOpacity.Text = "";
+            }
+            else
+            {
+                PartName.Text = p.Name;
+                ToothCount.Text = p.Teeth.ToothCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                Module.Text = Fmt(p.Teeth.Module);
+                PressureAngle.Text = Fmt(UnitConverter.RadToDeg(p.Teeth.PressureAngle));
+                HelixAngle.Text = Fmt(UnitConverter.RadToDeg(p.Teeth.HelixAngle));
+                FaceWidth.Text = Fmt(p.Teeth.FaceWidth);
+                BoreDiameter.Text = Fmt(p.Body.BoreDiameter);
+                KeywayWidth.Text = Fmt(p.Body.KeywayWidth);
+                HubDiameter.Text = Fmt(p.Body.HubDiameter);
+                LighteningHoles.Text = p.Body.LighteningHoleCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                ProfileTolerance.Text = Fmt(p.GeometrySettings.ProfileToleranceMm);
+                AxialSlices.Text = p.GeometrySettings.AxialSliceCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-        PartName.Text = p.Name;
-        int famIdx = IndexOfFamily(p.Family);
-        if (famIdx >= 0 && FamilyCombo.SelectedIndex != famIdx) FamilyCombo.SelectedIndex = famIdx;
+                PlaceX.Text = Fmt(p.Placement.X);
+                PlaceY.Text = Fmt(p.Placement.Y);
+                PlaceZ.Text = Fmt(p.Placement.Z);
+                PlaceTheta.Text = Fmt(UnitConverter.RadToDeg(p.Placement.Theta));
+                PlaceScale.Text = Fmt(p.Placement.Scale);
+                PlaceOpacity.Text = Fmt(p.DisplayOpacity);
 
-        ToothCount.Text = p.Teeth.ToothCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        Module.Text = Fmt(p.Teeth.Module);
-        PressureAngle.Text = Fmt(UnitConverter.RadToDeg(p.Teeth.PressureAngle));
-        HelixAngle.Text = Fmt(UnitConverter.RadToDeg(p.Teeth.HelixAngle));
-        FaceWidth.Text = Fmt(p.Teeth.FaceWidth);
-        BoreDiameter.Text = Fmt(p.Body.BoreDiameter);
-        KeywayWidth.Text = Fmt(p.Body.KeywayWidth);
-        HubDiameter.Text = Fmt(p.Body.HubDiameter);
-
-        PartsList.Items.Refresh();
-        FamilyNote.Text = CapabilityNote(p.Family);
+                int famIdx = IndexOfFamily(p.Family);
+                if (famIdx >= 0 && FamilyCombo.SelectedIndex != famIdx) FamilyCombo.SelectedIndex = famIdx;
+                FamilyNote.Text = CapabilityNote(p.Family);
+                BuildFamilyParams(p);
+            }
+        }
+        finally
+        {
+            _syncing = false;
+        }
     }
 
     private static string Fmt(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
@@ -94,14 +156,13 @@ public partial class DesignerView : UserControl
         };
     }
 
-    private bool _syncing;
-
     private void PushToModel()
     {
         if (_syncing || _main is null) return;
         var p = VM.SelectedPart;
         if (p is null) return;
 
+        VM.PushUndo();
         p.Name = PartName.Text;
         p.Teeth.ToothCount = ParseInt(ToothCount.Text, p.Teeth.ToothCount);
         p.Teeth.Module = ParseDouble(Module.Text, p.Teeth.Module);
@@ -111,9 +172,13 @@ public partial class DesignerView : UserControl
         p.Body.BoreDiameter = ParseDouble(BoreDiameter.Text, p.Body.BoreDiameter);
         p.Body.KeywayWidth = ParseDouble(KeywayWidth.Text, p.Body.KeywayWidth);
         p.Body.HubDiameter = ParseDouble(HubDiameter.Text, p.Body.HubDiameter);
+        p.Body.LighteningHoleCount = ParseInt(LighteningHoles.Text, p.Body.LighteningHoleCount);
+        p.GeometrySettings.ProfileToleranceMm = Math.Max(0.002, ParseDouble(ProfileTolerance.Text, p.GeometrySettings.ProfileToleranceMm));
+        p.GeometrySettings.AxialSliceCount = Math.Clamp(ParseInt(AxialSlices.Text, p.GeometrySettings.AxialSliceCount), 2, 400);
 
-        VM.Rebuild();
-        QueueRender();
+        ReadFamilyParams(p);
+        VM.ScheduleRebuild(p);
+        RefreshScene();
     }
 
     private static double ParseDouble(string s, double fallback)
@@ -122,14 +187,16 @@ public partial class DesignerView : UserControl
     private static int ParseInt(string s, int fallback)
         => int.TryParse(s, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : fallback;
 
-    // ---------- رویدادها ----------
+    // ---------- رویدادهای فرم ----------
 
-    private void PartName_TextChanged(object sender, TextChangedEventArgs e)
+    private void PartName_LostFocus(object sender, RoutedEventArgs e) => PushToModel();
+
+    private void Numeric_LostFocus(object sender, RoutedEventArgs e) => PushToModel();
+
+    private void Field_KeyDown(object sender, KeyEventArgs e)
     {
-        if (_syncing || VM.SelectedPart is { } p) PushToModel();
+        if (e.Key == Key.Enter) { PushToModel(); e.Handled = true; }
     }
-
-    private void Numeric_TextChanged(object sender, TextChangedEventArgs e) => PushToModel();
 
     private void FamilyCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -137,173 +204,396 @@ public partial class DesignerView : UserControl
         var fam = VM.SupportedFamilies[FamilyCombo.SelectedIndex];
         if (VM.SelectedPart is { } p && p.Family != fam)
         {
+            VM.PushUndo();
             p.Family = fam;
             FamilyNote.Text = CapabilityNote(fam);
-            VM.Rebuild();
-            QueueRender();
+            VM.RebuildPartNow(p);
+            RefreshScene();
         }
     }
 
     private void Rebuild_Click(object sender, RoutedEventArgs e)
     {
-        VM.Rebuild();
-        QueueRender();
+        if (VM.SelectedPart is { } p) VM.RebuildPartNow(p);
+        RefreshScene();
         _main?.SetStatus(VM.LastBuild is null
             ? "ساخت هندسه ناموفق — پیام‌ها را ببینید."
             : $"هندسه ساخته شد: {VM.LastBuild.Mesh.TriangleCount:N0} مثلث، {VM.LastBuild.AxialSlicesUsed} برش عرضی.");
     }
 
+    private void RebuildAll_Click(object sender, RoutedEventArgs e)
+    {
+        VM.RebuildAll();
+        RefreshScene();
+        _main?.SetStatus("همهٔ قطعات بازسازی شدند.");
+    }
+
+    // ---------- پارامترهای اختصاصی خانواده (فاز ۲٫۱) ----------
+
+    private readonly Dictionary<string, TextBox> _familyFields = new();
+
+    private void BuildFamilyParams(GearPart p)
+    {
+        FamilyParamsPanel.Children.Clear();
+        _familyFields.Clear();
+        var spec = p.Specific;
+
+        void Add(string key, string label, string value)
+        {
+            var tb = new TextBox
+            {
+                FlowDirection = FlowDirection.LeftToRight,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Width = 140,
+                Margin = new Thickness(0, 2, 0, 8),
+                Tag = key,
+                Text = value,
+            };
+            tb.LostFocus += FamilyField_LostFocus;
+            _familyFields[key] = tb;
+            FamilyParamsPanel.Children.Add(new TextBlock
+            {
+                Text = label,
+                Style = (Style)FindResource("MutedText"),
+                Margin = new Thickness(0, 2, 0, 0),
+                TextWrapping = TextWrapping.Wrap,
+            });
+            FamilyParamsPanel.Children.Add(tb);
+        }
+
+        switch (p.Family)
+        {
+            case GearFamily.Rack or GearFamily.HelicalRack:
+                Add("RackLength", "طول شانه (mm)", Fmt(spec.RackLengthMm == 0 ? 120 : spec.RackLengthMm));
+                break;
+            case GearFamily.Worm:
+                Add("WormPitchDia", "قطر گام کرم (mm)", Fmt(spec.WormPitchDiameterMm == 0 ? 40 : spec.WormPitchDiameterMm));
+                Add("WormStarts", "تعداد ورودی‌ها", spec.WormStartsCount.ToString());
+                Add("WormHand", "دست (1=راست، -1=چپ)", spec.WormIsRightHanded ? "1" : "-1");
+                Add("WormThroat", "خلأ گلوگاه (mm)", Fmt(spec.WormThroatClearanceMm));
+                break;
+            case GearFamily.WormWheel:
+                Add("WormPitchDia", "قطر گام کرم جفت (mm)", Fmt(spec.WormPitchDiameterMm == 0 ? 40 : spec.WormPitchDiameterMm));
+                Add("WormStarts", "ورودی‌های کرم جفت", spec.WormStartsCount.ToString());
+                break;
+            case GearFamily.BevelSpur or GearFamily.BevelSpiral:
+                Add("BevelShaft", "زاویهٔ محورها (درجه)", Fmt(UnitConverter.RadToDeg(spec.BevelShaftAngle == 0 ? Math.PI / 2 : spec.BevelShaftAngle)));
+                Add("BevelCone", "زاویهٔ مخروط گام (درجه)", Fmt(UnitConverter.RadToDeg(spec.BevelPitchConeAngle == 0 ? Math.PI / 4 : spec.BevelPitchConeAngle)));
+                if (p.Family == GearFamily.BevelSpiral)
+                    Add("BevelSpiral", "زاویهٔ مارپیچ قوسی (درجه)", Fmt(UnitConverter.RadToDeg(spec.BevelSpiralAngle)));
+                break;
+            case GearFamily.Hypoid:
+                Add("BevelShaft", "زاویهٔ محورها (درجه)", Fmt(UnitConverter.RadToDeg(spec.BevelShaftAngle == 0 ? Math.PI / 2 : spec.BevelShaftAngle)));
+                Add("BevelCone", "زاویهٔ مخروط گام (درجه)", Fmt(UnitConverter.RadToDeg(spec.BevelPitchConeAngle == 0 ? Math.PI / 4 : spec.BevelPitchConeAngle)));
+                Add("HypoidOffset", "آفست هیپوئید (mm)", Fmt(spec.HypoidOffsetMm));
+                break;
+            case GearFamily.NonCircular:
+                Add("Eccentricity", "خروج از مرکز (۰-۰٫۹)", Fmt(spec.NonCircularEccentricity));
+                break;
+            case GearFamily.HarmonicDrive:
+                Add("HarmonicDeflect", "خیز موج‌ساز (mm)", Fmt(spec.HarmonicWaveDeflectionMm == 0 ? 0.6 : spec.HarmonicWaveDeflectionMm));
+                Add("HarmonicWall", "ضخامت دیوارهٔ فنجان (mm)", Fmt(spec.HarmonicCupWallThicknessMm == 0 ? 1.2 : spec.HarmonicCupWallThicknessMm));
+                break;
+            case GearFamily.SplineExternal or GearFamily.SplineInternal:
+                Add("SplineBacklash", "لقی هزارخار (mm)", Fmt(spec.SplineBacklashMm));
+                Add("SplineFit", "نوع برازش (0=قطر گام، 1=جابه‌جایی دندانه)", ((int)spec.SplineFit).ToString());
+                break;
+        }
+
+        FamilyParamsBox.Visibility = _familyFields.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void FamilyField_LostFocus(object sender, RoutedEventArgs e)
+    {
+        ReadFamilyParams(VM.SelectedPart);
+        if (VM.SelectedPart is { } p) VM.ScheduleRebuild(p);
+        RefreshScene();
+    }
+
+    private void ReadFamilyParams(GearPart? p)
+    {
+        if (p is null || _familyFields.Count == 0) return;
+        var spec = p.Specific;
+
+        string V(string key) => _familyFields.TryGetValue(key, out var tb) ? tb.Text : "";
+        double D(string key, double fb) => ParseDouble(V(key), fb);
+        int I(string key, int fb) => ParseInt(V(key), fb);
+
+        switch (p.Family)
+        {
+            case GearFamily.Rack or GearFamily.HelicalRack:
+                spec.RackLengthMm = D("RackLength", 120);
+                break;
+            case GearFamily.Worm:
+                spec.WormPitchDiameterMm = D("WormPitchDia", 40);
+                spec.WormStartsCount = Math.Clamp(I("WormStarts", 1), 1, 12);
+                spec.WormIsRightHanded = I("WormHand", 1) >= 0;
+                spec.WormThroatClearanceMm = D("WormThroat", 0);
+                break;
+            case GearFamily.WormWheel:
+                spec.WormPitchDiameterMm = D("WormPitchDia", 40);
+                spec.WormStartsCount = Math.Clamp(I("WormStarts", 1), 1, 12);
+                break;
+            case GearFamily.BevelSpur or GearFamily.BevelSpiral:
+                spec.BevelShaftAngle = UnitConverter.DegToRad(D("BevelShaft", 90));
+                spec.BevelPitchConeAngle = UnitConverter.DegToRad(D("BevelCone", 45));
+                if (p.Family == GearFamily.BevelSpiral)
+                    spec.BevelSpiralAngle = UnitConverter.DegToRad(D("BevelSpiral", 32));
+                break;
+            case GearFamily.Hypoid:
+                spec.BevelShaftAngle = UnitConverter.DegToRad(D("BevelShaft", 90));
+                spec.BevelPitchConeAngle = UnitConverter.DegToRad(D("BevelCone", 45));
+                spec.HypoidOffsetMm = D("HypoidOffset", 0);
+                break;
+            case GearFamily.NonCircular:
+                spec.NonCircularEccentricity = Math.Clamp(D("Eccentricity", 0.5), 0, 0.9);
+                break;
+            case GearFamily.HarmonicDrive:
+                spec.HarmonicWaveDeflectionMm = D("HarmonicDeflect", 0.6);
+                spec.HarmonicCupWallThicknessMm = D("HarmonicWall", 1.2);
+                break;
+            case GearFamily.SplineExternal or GearFamily.SplineInternal:
+                spec.SplineBacklashMm = D("SplineBacklash", 0);
+                spec.SplineFit = (SplineFitType)Math.Clamp(I("SplineFit", 0), 0, 1);
+                break;
+        }
+    }
+
+    // ---------- درخت پروژه (فاز ۱٫۲۱) ----------
+
+    private void PartNode_Click(object sender, MouseButtonEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is string id)
+        {
+            var part = VM.Parts.FirstOrDefault(p => p.Id == id);
+            if (part is not null && !part.DisplayLocked)
+                VM.SelectedPart = part;
+            else if (part is not null)
+                _main?.SetStatus("این قطعه قفل است — ابتدا قفل را باز کنید.");
+        }
+    }
+
+    private void Eye_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if ((sender as FrameworkElement)?.Tag is string id)
+            HidePart(id);
+    }
+
+    private void Lock_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if ((sender as FrameworkElement)?.Tag is string id)
+            ToggleLock(id);
+    }
+
+    private GearPart? PartById(string id) => VM.Parts.FirstOrDefault(p => p.Id == id);
+
+    private void HidePart(string id)
+    {
+        if (PartById(id) is { } p)
+        {
+            p.DisplayVisible = !p.DisplayVisible;
+            VM.SyncPartDisplay(p);
+            RefreshScene();
+        }
+    }
+
+    private void ShowAllParts()
+    {
+        foreach (var p in VM.Parts)
+            p.DisplayVisible = true;
+        foreach (var p in VM.Parts)
+            VM.SyncPartDisplay(p);
+        RefreshScene();
+    }
+
+    private void ToggleLock(string id)
+    {
+        if (PartById(id) is { } p)
+        {
+            p.DisplayLocked = !p.DisplayLocked;
+            VM.SyncPartDisplay(p);
+            RefreshScene();
+        }
+    }
+
+    private void DuplicateById(string id)
+    {
+        var p = PartById(id);
+        if (p is null) return;
+        VM.DuplicatePartCommand.Execute(p);
+        SyncFromPart();
+        RefreshScene();
+    }
+
+    private void DeleteById(string id)
+    {
+        var p = PartById(id);
+        if (p is null) return;
+        VM.RemovePartCommand.Execute(p);
+        SyncFromPart();
+        RefreshScene();
+    }
+
+    // ---------- رنگ/شفافیت (فاز ۱٫۲۲) ----------
+
+    private void EditColor(string id)
+    {
+        if (PartById(id) is not { } p) return;
+        EditColorOf(p);
+    }
+
+    private void PartColor_Click(object sender, RoutedEventArgs e)
+    {
+        if (VM.SelectedPart is { } p) EditColorOf(p);
+    }
+
+    private void EditColorOf(GearPart p)
+    {
+        var hex = ColorPickDialog.Show(p.DisplayColor);
+        if (hex is not null)
+        {
+            VM.SetPartColor(p, hex);
+            RefreshScene();
+        }
+    }
+
+    private void EditOpacity(string id)
+    {
+        if (PartById(id) is not { } p) return;
+        var input = InputDialog.Show("شفافیت قطعه",
+            "شفافیت (۰٫۰۵ تا ۱ — ۱ = کاملاً مات):",
+            p.DisplayOpacity.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+        if (input is not null && double.TryParse(input, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var v))
+        {
+            VM.SetPartOpacity(p, v);
+            SyncFromPart();
+            RefreshScene();
+        }
+    }
+
+    // ---------- جای‌گذاری عددی (فاز ۱٫۲۳) ----------
+
+    private void Placement_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_syncing || VM.SelectedPart is not { } p) return;
+        VM.PushUndo();
+        VM.SetPartPlacement(p,
+            ParseDouble(PlaceX.Text, p.Placement.X),
+            ParseDouble(PlaceY.Text, p.Placement.Y),
+            ParseDouble(PlaceZ.Text, p.Placement.Z),
+            ParseDouble(PlaceTheta.Text, UnitConverter.RadToDeg(p.Placement.Theta)),
+            ParseDouble(PlaceScale.Text, p.Placement.Scale));
+        if (double.TryParse(PlaceOpacity.Text, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var op))
+            VM.SetPartOpacity(p, op);
+        RefreshScene();
+    }
+
+    private void FramePart_Click(object sender, RoutedEventArgs e)
+    {
+        if (VM.SelectedPart is { } p)
+            Viewport.FrameObject(p.Id);
+    }
+
+    // ---------- نماهای نام‌دار (فاز ۱٫۱۶) ----------
+
+    private void SaveView_Click(object sender, RoutedEventArgs e)
+    {
+        string name = ViewName.Text.Trim();
+        if (name.Length == 0)
+        {
+            _main?.SetStatus("نام نما را وارد کنید.");
+            return;
+        }
+        var v = Viewport.CaptureCurrentView(name);
+        VM.SaveCurrentView(name, v.Azimuth, v.Elevation, v.Distance,
+            v.TargetX, v.TargetY, v.TargetZ, v.Projection == ProjectionKind.Perspective);
+        RefreshViewsList();
+        _main?.SetStatus($"نمای «{name}» ذخیره شد.");
+    }
+
+    private void ApplyView_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is string name)
+        {
+            var v = VM.SavedViews.FirstOrDefault(x => x.Name == name);
+            if (v is not null)
+                Viewport.ApplySavedView(new SahandGearMaker.Scene.SavedCameraView
+                {
+                    Name = v.Name,
+                    Azimuth = v.Azimuth,
+                    Elevation = v.Elevation,
+                    Distance = v.Distance,
+                    TargetX = v.TargetX,
+                    TargetY = v.TargetY,
+                    TargetZ = v.TargetZ,
+                    Projection = v.Projection == ViewProjection.Orthographic
+                        ? SahandGearMaker.Scene.ProjectionKind.Orthographic
+                        : SahandGearMaker.Scene.ProjectionKind.Perspective,
+                });
+        }
+    }
+
+    private void DeleteView_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is string name)
+        {
+            VM.DeleteView(name);
+            RefreshViewsList();
+        }
+    }
+
+    // ---------- مدیریت قطعات ----------
+
     private void AddPart_Click(object sender, RoutedEventArgs e)
     {
         VM.AddPartCommand.Execute(null);
-        VM.SelectedPart = VM.Parts.LastOrDefault();
         SyncFromPart();
-        QueueRender();
+        RefreshScene();
     }
 
     private void DuplicatePart_Click(object sender, RoutedEventArgs e)
     {
         VM.DuplicatePartCommand.Execute(VM.SelectedPart);
-        VM.SelectedPart = VM.Parts.LastOrDefault();
         SyncFromPart();
-        QueueRender();
+        RefreshScene();
     }
 
     private void RemovePart_Click(object sender, RoutedEventArgs e)
     {
         VM.RemovePartCommand.Execute(VM.SelectedPart);
         SyncFromPart();
-        QueueRender();
+        RefreshScene();
     }
 
-    private void PartsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    // ---------- انتخاب از بوم (فاز ۱٫۱۹) ----------
+
+    private void Viewport_PickRequested(object? sender, string? id)
     {
-        if (_syncing && PartsList.SelectedItem is GearPart p && !ReferenceEquals(p, VM.SelectedPart))
+        if (id is null) return;
+        var part = PartById(id);
+        if (part is null) return;
+        if (part.DisplayLocked)
         {
-            _syncing = true;
-            VM.SelectedPart = p;
-            _syncing = false;
-            SyncFromPart();
-            QueueRender();
+            _main?.SetStatus("قطعهٔ زیر مکان‌نما قفل است.");
+            return;
         }
+        VM.SelectedPart = part;
+        _main?.SetStatus($"انتخاب شد: {part.Name}");
     }
 
-    // ---------- بوم سه‌بعدی ----------
+    // ---------- تمام‌بوم (فاز ۱٫۱۲) ----------
 
-    private void Viewport_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private bool _fullscreen;
+
+    private void ToggleFullscreen()
     {
-        _dragging = true;
-        _lastMouse = e.GetPosition(ViewportHost);
-        ViewportHost.CaptureMouse();
-    }
-
-    private void Viewport_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        _dragging = false;
-        ViewportHost.ReleaseMouseCapture();
-    }
-
-    private void Viewport_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        // راست‌کلیک: تغییر حالت نمایش (سایه/سیمی/لبه‌دار)
-        _mode = _mode switch
-        {
-            SoftwareRenderer.DisplayMode.ShadedWithEdges => SoftwareRenderer.DisplayMode.Shaded,
-            SoftwareRenderer.DisplayMode.Shaded => SoftwareRenderer.DisplayMode.Wireframe,
-            _ => SoftwareRenderer.DisplayMode.ShadedWithEdges,
-        };
-        QueueRender();
-    }
-
-    private void Viewport_MouseMove(object sender, MouseEventArgs e)
-    {
-        if (!_dragging) return;
-        var pos = e.GetPosition(ViewportHost);
-        double dx = pos.X - _lastMouse.X;
-        double dy = pos.Y - _lastMouse.Y;
-        _lastMouse = pos;
-
-        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
-            _camera.Pan(-dx, -dy);
-        else
-            _camera.Rotate(-dx * 0.008, -dy * 0.008);
-        QueueRender();
-    }
-
-    private void Viewport_MouseWheel(object sender, MouseWheelEventArgs e)
-    {
-        _camera.Zoom(e.Delta > 0 ? 0.9 : 1.1);
-        QueueRender();
-    }
-
-    private void View_Iso(object sender, RoutedEventArgs e)
-    {
-        _camera = new OrbitCamera { Distance = _camera.Distance };
-        QueueRender();
-    }
-
-    private void View_Front(object sender, RoutedEventArgs e)
-    {
-        _camera.Elevation = 0.0001; _camera.Azimuth = 0;
-        QueueRender();
-    }
-
-    private void View_Top(object sender, RoutedEventArgs e)
-    {
-        _camera.Elevation = 1.45; _camera.Azimuth = 0;
-        QueueRender();
-    }
-
-    private void View_Side(object sender, RoutedEventArgs e)
-    {
-        _camera.Elevation = 0.0001; _camera.Azimuth = Math.PI / 2;
-        QueueRender();
-    }
-
-    private void View_Fit(object sender, RoutedEventArgs e)
-    {
-        var build = VM.LastBuild;
-        if (build is null) return;
-        var (min, max) = build.Mesh.Bounds();
-        double size = Math.Max(1, Math.Max(max.X - min.X, Math.Max(max.Y - min.Y, max.Z - min.Z)));
-        _camera.Target = new MathX.Vector3((min.X + max.X) / 2, (min.Y + max.Y) / 2, (min.Z + max.Z) / 2);
-        _camera.ZoomTo(size * 2.6);
-        QueueRender();
-    }
-
-    private void QueueRender()
-    {
-        if (_renderQueued || _main is null) return;
-        _renderQueued = true;
-        Dispatcher.BeginInvoke(() =>
-        {
-            _renderQueued = false;
-            RenderNow();
-        }, System.Windows.Threading.DispatcherPriority.Background);
-    }
-
-    private void RenderNow()
-    {
-        if (_main is null || ViewportHost.ActualWidth < 10 || ViewportHost.ActualHeight < 10) return;
-
-        int w = (int)ViewportHost.ActualWidth;
-        int h = (int)ViewportHost.ActualHeight;
-        var renderer = new SoftwareRenderer(w, h);
-        renderer.Clear(0xEA, 0xEE, 0xF4);
-
-        var build = VM.LastBuild;
-        if (build is not null)
-        {
-            var color = Color.FromRgb(0x25, 0x63, 0xEB);
-            renderer.Render(build.Mesh, _camera, _mode, color);
-        }
-        else
-        {
-            // نمای خالی: نماد چرخ‌دنده ساده برای شروع (سند ۰۲، بخش ۸)
-        }
-
-        var bmp = new WriteableBitmap(w, h, 96, 96, PixelFormats.Bgra32, null);
-        renderer.Blit(bmp);
-        ViewportImage.Source = bmp;
+        _fullscreen = !_fullscreen;
+        RightCol.Width = new GridLength(_fullscreen ? 0 : 330);
+        LeftCol.Width = new GridLength(_fullscreen ? 0 : 300);
+        _main?.SetStatus(_fullscreen ? "حالت تمام‌بوم — دوباره دکمهٔ ⛶ را بزنید تا پنل‌ها برگردند." : "پنل‌ها برگشتند.");
     }
 }

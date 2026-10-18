@@ -74,7 +74,9 @@ public sealed class SceneObject
 {
     public required string Id { get; init; }
     public string Name { get; set; } = string.Empty;
-    public required TriMesh Mesh { get; init; }
+
+    /// <summary>مش مثلثی — با هر بازسازی هندسه می‌تواند تعویض شود؛ درون رشتهٔ UI.</summary>
+    public required TriMesh Mesh { get; set; }
 
     /// <summary>نرمال رأس‌های پیش‌محاسبه‌شده (فاز ۱٫۶) — با مش هم‌طول؛ null = هنوز محاسبه نشده.</summary>
     public Vector3[]? VertexNormals { get; set; }

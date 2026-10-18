@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>SceneSmoke</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/SahandGearMaker.Domain/SahandGearMaker.Domain.csproj" />
+    <ProjectReference Include="../../src/SahandGearMaker.Geometry/SahandGearMaker.Geometry.csproj" />
+    <ProjectReference Include="../../src/SahandGearMaker.Scene/SahandGearMaker.Scene.csproj" />
+  </ItemGroup>
+</Project>

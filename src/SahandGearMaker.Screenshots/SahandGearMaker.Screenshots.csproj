@@ -18,6 +18,7 @@
     <ProjectReference Include="..\SahandGearMaker.Math\SahandGearMaker.Math.csproj" />
     <ProjectReference Include="..\SahandGearMaker.Geometry\SahandGearMaker.Geometry.csproj" />
     <ProjectReference Include="..\SahandGearMaker.App\SahandGearMaker.App.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Scene\SahandGearMaker.Scene.csproj" />
   </ItemGroup>
 
 </Project>

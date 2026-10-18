@@ -24,6 +24,9 @@ public sealed class GearProject
     /// <summary>رابطه‌های مونتاژ/جفت‌شدن قطعات.</summary>
     public List<MatingRelation> Matings { get; set; } = new();
 
+    /// <summary>نماهای نام‌دار دوربین ذخیره‌شدهٔ کاربر (فاز ۱٫۱۶) — افزودنی و سازگار با فایل‌های قدیمی.</summary>
+    public List<SavedView> SavedViews { get; set; } = new();
+
     /// <summary>دادهٔ ناشناختهٔ نگه‌داشته‌شده از نسخه‌های جدیدتر/قدیمی‌تر — حذف خاموش ممنوع (سند ۰۴، بخش ۳).</summary>
     public Dictionary<string, object?>? UnknownData { get; set; }
 

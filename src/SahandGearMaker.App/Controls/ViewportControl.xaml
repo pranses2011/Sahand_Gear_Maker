@@ -1,0 +1,109 @@
+<UserControl x:Class="SahandGearMaker.App.Controls.ViewportControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="LeftToRight"
+             Focusable="True"
+             IsTabStop="True">
+    <Grid ClipToBounds="True">
+        <!-- سطح رندر -->
+        <Image x:Name="Surface" Stretch="Fill" RenderOptions.BitmapScalingMode="NearestNeighbor" />
+
+        <!-- لایهٔ تعامل (شفاف؛ رویدادهای ماوس/صفحه‌کلید) -->
+        <Grid x:Name="InteractionLayer" Background="Transparent"
+              MouseLeftButtonDown="Interaction_MouseLeftButtonDown"
+              MouseLeftButtonUp="Interaction_MouseLeftButtonUp"
+              MouseRightButtonUp="Interaction_MouseRightButtonUp"
+              MouseMove="Interaction_MouseMove"
+              MouseWheel="Interaction_MouseWheel"
+              MouseLeave="Interaction_MouseLeave"
+              ContextMenuOpening="Interaction_ContextMenuOpening">
+            <Grid.ContextMenu>
+                <ContextMenu x:Name="CanvasMenu" FlowDirection="RightToLeft">
+                    <MenuItem x:Name="MenuFrame" Header="قاب‌کردن این قطعه (F)" Click="MenuFrame_Click" FontWeight="Bold" />
+                    <Separator />
+                    <MenuItem x:Name="MenuHide" Header="مخفی‌کردن" Click="MenuHide_Click" />
+                    <MenuItem x:Name="MenuShowAll" Header="نمایش همهٔ قطعات" Click="MenuShowAll_Click" />
+                    <MenuItem x:Name="MenuLock" Header="قفل/بازکردن قفل" Click="MenuLock_Click" />
+                    <Separator />
+                    <MenuItem x:Name="MenuDuplicate" Header="تکثیر قطعه" Click="MenuDuplicate_Click" />
+                    <MenuItem x:Name="MenuDelete" Header="حذف قطعه" Click="MenuDelete_Click" />
+                    <Separator />
+                    <MenuItem x:Name="MenuColor" Header="تغییر رنگ…" Click="MenuColor_Click" />
+                    <MenuItem x:Name="MenuOpacity" Header="شفافیت…" Click="MenuOpacity_Click" />
+                </ContextMenu>
+            </Grid.ContextMenu>
+        </Grid>
+
+        <!-- نوار ابزار بوم (فاز ۱٫۱۲) — بالای بوم -->
+        <Border VerticalAlignment="Top" HorizontalAlignment="Center" Margin="8"
+                Background="#E8FFFFFF" CornerRadius="8" Padding="8,5"
+                BorderBrush="#22000000" BorderThickness="1">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="نمایش:" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12" />
+                <ComboBox x:Name="ModeCombo" Width="110" SelectionChanged="ModeCombo_SelectionChanged" FontSize="12">
+                    <ComboBoxItem Content="سایه + لبه" IsSelected="True" />
+                    <ComboBoxItem Content="سایه" />
+                    <ComboBoxItem Content="سیمی" />
+                </ComboBox>
+                <Separator Margin="6,0" />
+                <ToggleButton x:Name="BtnGrid" Content="گرید" IsChecked="True" Click="BtnGrid_Click" Margin="0,0,4,0" Padding="8,3" FontSize="12" />
+                <ToggleButton x:Name="BtnAxes" Content="محورها" IsChecked="True" Click="BtnAxes_Click" Margin="0,0,4,0" Padding="8,3" FontSize="12" />
+                <ToggleButton x:Name="BtnProjection" Content="پرسپکتیو" Click="BtnProjection_Click" Padding="8,3" FontSize="12" />
+                <Separator Margin="6,0" />
+                <Button Content="قاب (F)" Click="BtnFrame_Click" Margin="0,0,4,0" Padding="8,3" FontSize="12" />
+                <Button Content="📷 عکس" Click="BtnScreenshot_Click" Margin="0,0,4,0" Padding="8,3" FontSize="12" />
+                <Button x:Name="BtnFullscreen" Content="⛶ تمام‌بوم" Click="BtnFullscreen_Click" Padding="8,3" FontSize="12" />
+            </StackPanel>
+        </Border>
+
+        <!-- مکعب نما (فاز ۱٫۱۵) — گوشهٔ بالا-راست -->
+        <Border VerticalAlignment="Top" HorizontalAlignment="Right" Margin="8"
+                Background="#E8FFFFFF" CornerRadius="8" Padding="6"
+                BorderBrush="#22000000" BorderThickness="1">
+            <StackPanel>
+                <Button x:Name="CubeTop" Content="بالا" FontSize="10.5" Width="40" Padding="0,2" Margin="22,0" Click="Cube_Top" />
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="CubeLeft" Content="چپ" FontSize="10.5" Width="40" Padding="0,2" Margin="0,2" Click="Cube_Left" />
+                    <Button x:Name="CubeIso" Content="ایزو" FontSize="10.5" Width="40" Padding="0,2" Margin="2,2" FontWeight="Bold" Click="Cube_Iso" />
+                    <Button x:Name="CubeRight" Content="راست" FontSize="10.5" Width="40" Padding="0,2" Margin="2,2" Click="Cube_Right" />
+                </StackPanel>
+                <Button x:Name="CubeBottom" Content="پایین" FontSize="10.5" Width="40" Padding="0,2" Margin="22,0" Click="Cube_Bottom" />
+                <Button x:Name="CubeFront" Content="جلو" FontSize="10.5" Width="84" Padding="0,2" Margin="0,2" Click="Cube_Front" />
+                <Button x:Name="CubeBack" Content="پشت" FontSize="10.5" Width="84" Padding="0,2" Click="Cube_Back" />
+            </StackPanel>
+        </Border>
+
+        <!-- HUD بوم (فاز ۱٫۸) — پایین-راست -->
+        <Border VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="8"
+                Background="#B3FFFFFF" CornerRadius="6" Padding="8,4">
+            <TextBlock x:Name="HudText" FontSize="11" Foreground="#445" FontFamily="Consolas"
+                       Text="— مثلث — fps — mm" />
+        </Border>
+
+        <!-- راهنمای ماوس (فاز ۱٫۹) — پایین-چپ -->
+        <Border VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="8"
+                Background="#B3FFFFFF" CornerRadius="6" Padding="8,4">
+            <TextBlock FontSize="11" Foreground="#556">
+                <Run Text="درگ چپ: چرخش   |   درگ وسط/Shift+چپ: جابه‌جایی   |   چرخ ماوس: زوم   |   کلیک: انتخاب" />
+            </TextBlock>
+        </Border>
+
+        <!-- حالت خالی حرفه‌ای (فاز ۱٫۹) -->
+        <Border x:Name="EmptyState" Background="#F2FFFFFF" CornerRadius="10" Margin="40"
+                VerticalAlignment="Center" HorizontalAlignment="Center" Padding="32"
+                BorderBrush="#33888" BorderThickness="1">
+            <StackPanel HorizontalAlignment="Center">
+                <TextBlock Text="⚙" FontSize="64" HorizontalAlignment="Center" Foreground="#2563EB" Opacity="0.35" />
+                <TextBlock Text="پروژه خالی است" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,10,0,4" Foreground="#334" />
+                <TextBlock Text="از نوار «＋ قطعه» شروع کنید یا از صفحهٔ خانه نمونه بسازید." FontSize="13"
+                           HorizontalAlignment="Center" Foreground="#667" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- اندیکاتور ساخت (فاز ۱٫۱۱) -->
+        <Border x:Name="BusyBadge" Visibility="Collapsed" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="8"
+                Background="#E62563EB" CornerRadius="6" Padding="10,5">
+            <TextBlock Text="در حال ساخت هندسه…" Foreground="White" FontSize="12" />
+        </Border>
+    </Grid>
+</UserControl>

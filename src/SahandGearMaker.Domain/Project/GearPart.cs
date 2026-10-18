@@ -29,6 +29,15 @@ public sealed class GearPart
     /// <summary>رنگ نمایشی RGB (هگز) — فقط نمایش؛ خواص ساخت/استحکام را تضمین نمی‌کند.</summary>
     public string DisplayColor { get; set; } = "#2563EB";
 
+    /// <summary>کدری نمایشی ۰..۱ — ۱ مات (فاز ۱٫۲۲: شفافیت per-part).</summary>
+    public double DisplayOpacity { get; set; } = 1.0;
+
+    /// <summary>نمایش/مخفی‌کردن قطعه در بوم (فاز ۱٫۲۰).</summary>
+    public bool DisplayVisible { get; set; } = true;
+
+    /// <summary>قفل‌کردن انتخاب/ویرایش قطعه (فاز ۱٫۲۱).</summary>
+    public bool DisplayLocked { get; set; }
+
     /// <summary>هشدارها/خطاهای ثبت‌شدهٔ آخرین ساخت هندسه (برای گزارش و نمایش وضعیت).</summary>
     public List<GearDiagnostic> Validation { get; set; } = new();
 
@@ -90,13 +99,16 @@ public sealed class GearPart
             SplineBacklashMm = Specific.SplineBacklashMm,
             SplineStandardNote = Specific.SplineStandardNote,
         },
-        Placement = new Placement { X = Placement.X, Y = Placement.Y, Theta = Placement.Theta },
+        Placement = new Placement { X = Placement.X, Y = Placement.Y, Z = Placement.Z, Theta = Placement.Theta, Scale = Placement.Scale },
         DisplayColor = DisplayColor,
+        DisplayOpacity = DisplayOpacity,
+        DisplayVisible = DisplayVisible,
+        DisplayLocked = DisplayLocked,
         GeometrySettings = new GeometrySettings { ProfileToleranceMm = GeometrySettings.ProfileToleranceMm },
     };
 }
 
-/// <summary>قرارگیری قطعه در صفحهٔ مونتاژ (XY)، محور چرخش Z.</summary>
+/// <summary>قرارگیری قطعه در مونتاژ (XY + ارتفاع Z)، محور چرخش Z — فاز ۱C/۳.</summary>
 public sealed class Placement
 {
     /// <summary>مختصات X مرکز (mm).</summary>
@@ -105,8 +117,14 @@ public sealed class Placement
     /// <summary>مختصات Y مرکز (mm).</summary>
     public double Y { get; set; }
 
+    /// <summary>ارتفاع مرکز روی محور Z (mm) — برای انباشت محوری (فاز ۱C).</summary>
+    public double Z { get; set; }
+
     /// <summary>زاویهٔ چرخش اولیهٔ دوران حول محور Z (رادیان).</summary>
     public double Theta { get; set; }
+
+    /// <summary>مقیاس نمایشی یکنواخت — ۱ = واقعی (فاز ۱C: کنترل مقیاس شیئ).</summary>
+    public double Scale { get; set; } = 1.0;
 }
 
 /// <summary>تنظیم کیفیت هندسی/مش — تلرانس وتر به‌جای تعداد نقطهٔ ثابت (سند ۰۴، بخش ۵).</summary>

@@ -33,6 +33,7 @@
     <ProjectReference Include="..\SahandGearMaker.Persistence\SahandGearMaker.Persistence.csproj" />
     <ProjectReference Include="..\SahandGearMaker.Exports\SahandGearMaker.Exports.csproj" />
     <ProjectReference Include="..\SahandGearMaker.Drawing\SahandGearMaker.Drawing.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Scene\SahandGearMaker.Scene.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -18,3 +18,5 @@ TestResults/
 # OS
 Thumbs.db
 .DS_Store
+tools/SceneSmoke/bin/
+tools/SceneSmoke/obj/

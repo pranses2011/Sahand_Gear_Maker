@@ -1,15 +1,16 @@
 <UserControl x:Class="SahandGearMaker.App.Views.DesignerView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:SahandGearMaker.App.Controls"
              FlowDirection="RightToLeft">
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="330" />
+            <ColumnDefinition x:Name="RightCol" Width="330" />
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="280" />
+            <ColumnDefinition x:Name="LeftCol" Width="300" />
         </Grid.ColumnDefinitions>
 
-        <!-- ═══ ستون راست: پارامترها (سند ۰۲، بخش ۶.۲) ═══ -->
+        <!-- ═══ ستون راست: پارامترها (سند ۰۲، بخش ۶.۲ + فاز ۲٫۱) ═══ -->
         <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="6">
                 <TextBlock Text="پارامترهای قطعه" Style="{StaticResource SectionText}" Margin="4,0,4,8" />
@@ -17,9 +18,9 @@
                 <GroupBox Header="نوع و نام">
                     <StackPanel>
                         <TextBlock Text="نام قطعه" Style="{StaticResource MutedText}" Margin="0,2" />
-                        <TextBox x:Name="PartName" TextChanged="PartName_TextChanged" Margin="0,2,0,10" />
+                        <TextBox x:Name="PartName" LostFocus="PartName_LostFocus" KeyDown="Field_KeyDown" Margin="0,2,0,10" />
 
-                        <TextBlock Text="خانوادهٔ هندسی" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <TextBlock Text="خانوادهٔ هندسی (۱۹ خانواده)" Style="{StaticResource MutedText}" Margin="0,2" TextWrapping="Wrap" />
                         <ComboBox x:Name="FamilyCombo" SelectionChanged="FamilyCombo_SelectionChanged" Margin="0,2,0,6" />
                         <TextBlock x:Name="FamilyNote" Style="{StaticResource MutedText}" TextWrapping="Wrap" />
                     </StackPanel>
@@ -28,84 +29,186 @@
                 <GroupBox Header="دندانه">
                     <StackPanel>
                         <TextBlock Text="تعداد دندانه (z)" Style="{StaticResource MutedText}" Margin="0,2" />
-                        <TextBox x:Name="ToothCount" TextChanged="Numeric_TextChanged" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+                        <TextBox x:Name="ToothCount" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
 
                         <TextBlock Text="ماژول (mm)" Style="{StaticResource MutedText}" Margin="0,2" />
-                        <TextBox x:Name="Module" TextChanged="Numeric_TextChanged" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+                        <TextBox x:Name="Module" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
 
                         <TextBlock Text="زاویهٔ فشار (درجه)" Style="{StaticResource MutedText}" Margin="0,2" />
-                        <TextBox x:Name="PressureAngle" TextChanged="Numeric_TextChanged" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+                        <TextBox x:Name="PressureAngle" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
 
                         <TextBlock Text="زاویهٔ مارپیچ (درجه)" Style="{StaticResource MutedText}" Margin="0,2" />
-                        <TextBox x:Name="HelixAngle" TextChanged="Numeric_TextChanged" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+                        <TextBox x:Name="HelixAngle" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
 
                         <TextBlock Text="پهنای دندانه (mm)" Style="{StaticResource MutedText}" Margin="0,2" />
-                        <TextBox x:Name="FaceWidth" TextChanged="Numeric_TextChanged" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,4" />
+                        <TextBox x:Name="FaceWidth" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,4" />
                     </StackPanel>
                 </GroupBox>
 
                 <GroupBox Header="بدنه">
                     <StackPanel>
                         <TextBlock Text="قطر سوراخ مرکزی (mm)" Style="{StaticResource MutedText}" Margin="0,2" />
-                        <TextBox x:Name="BoreDiameter" TextChanged="Numeric_TextChanged" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+                        <TextBox x:Name="BoreDiameter" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
 
                         <TextBlock Text="پهنای شیار خار (mm — صفر = بدون خار)" Style="{StaticResource MutedText}" Margin="0,2" TextWrapping="Wrap" />
-                        <TextBox x:Name="KeywayWidth" TextChanged="Numeric_TextChanged" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+                        <TextBox x:Name="KeywayWidth" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
 
                         <TextBlock Text="قطر توپی (mm — صفر = بدون توپی)" Style="{StaticResource MutedText}" Margin="0,2" TextWrapping="Wrap" />
-                        <TextBox x:Name="HubDiameter" TextChanged="Numeric_TextChanged" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,4" />
+                        <TextBox x:Name="HubDiameter" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock Text="حفره‌های سبک‌سازی (تعداد — صفر = بدون)" Style="{StaticResource MutedText}" Margin="0,2" TextWrapping="Wrap" />
+                        <TextBox x:Name="LighteningHoles" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,4" />
                     </StackPanel>
                 </GroupBox>
 
-                <Button Content="بازسازی هندسه" Click="Rebuild_Click" Margin="0,10,0,0" />
+                <!-- پارامترهای اختصاصی خانواده — فاز ۲٫۱: به‌صورت پویا ساخته می‌شود -->
+                <GroupBox x:Name="FamilyParamsBox" Header="پارامترهای اختصاصی خانواده" Visibility="Collapsed">
+                    <StackPanel x:Name="FamilyParamsPanel" />
+                </GroupBox>
+
+                <GroupBox Header="کیفیت مش">
+                    <StackPanel>
+                        <TextBlock Text="تلرانس وتر پروفیل (mm)" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <TextBox x:Name="ProfileTolerance" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock Text="برش‌های عرضی مارپیچ" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <TextBox x:Name="AxialSlices" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,4" />
+                    </StackPanel>
+                </GroupBox>
+
+                <UniformGrid Columns="2" Margin="0,10,0,0">
+                    <Button Content="بازسازی هندسه" Click="Rebuild_Click" Margin="0,0,4,0" />
+                    <Button Content="بازسازی همه" Style="{StaticResource SecondaryButton}" Margin="4,0,0,0" Click="RebuildAll_Click" />
+                </UniformGrid>
             </StackPanel>
         </ScrollViewer>
 
-        <!-- ═══ مرکز: بوم سه‌بعدی (سند ۰۲، بخش ۶.۳) ═══ -->
+        <!-- ═══ مرکز: بوم حرفه‌ای (فاز ۱B/۱C) ═══ -->
         <Grid Grid.Column="1" Margin="6">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-
-            <Border Grid.Row="0" x:Name="ViewportHost" Background="#FFEAEEF4" CornerRadius="8"
-                    ClipToBounds="True"
-                    MouseLeftButtonDown="Viewport_MouseLeftButtonDown"
-                    MouseLeftButtonUp="Viewport_MouseLeftButtonUp"
-                    MouseMove="Viewport_MouseMove"
-                    MouseWheel="Viewport_MouseWheel"
-                    MouseRightButtonDown="Viewport_MouseRightButtonDown">
-                <Image x:Name="ViewportImage" Stretch="Fill" />
+            <Border Grid.Row="0" Background="#FFEAEEF4" CornerRadius="8" ClipToBounds="True">
+                <controls:ViewportControl x:Name="Viewport" />
             </Border>
-
-            <UniformGrid Grid.Row="1" Columns="5" Margin="0,8,0,0">
-                <Button Content="ایزومتریک" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="View_Iso" />
-                <Button Content="جلو" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="View_Front" />
-                <Button Content="بالا" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="View_Top" />
-                <Button Content="راست" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="View_Side" />
-                <Button Content="قاب‌کردن" Style="{StaticResource SecondaryButton}" Click="View_Fit" />
-            </UniformGrid>
         </Grid>
 
-        <!-- ═══ ستون چپ: درخت پروژه + پیام‌ها (سند ۰۲، بخش ۵) ═══ -->
+        <!-- ═══ ستون چپ: درخت + شیئ + نمابر + گونه‌ها + پیام‌ها ═══ -->
         <Grid Grid.Column="2" Margin="6">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
+                <RowDefinition Height="2*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
-                <Button Content="＋ قطعه" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="AddPart_Click" />
-                <Button Content="تکثیر" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Click="DuplicatePart_Click" />
-                <Button Content="حذف" Style="{StaticResource SecondaryButton}" Click="RemovePart_Click" />
+                <Button Content="＋ قطعه" Style="{StaticResource SecondaryButton}" Margin="0,0,4,0" Click="AddPart_Click" Padding="8,4" />
+                <Button Content="تکثیر" Style="{StaticResource SecondaryButton}" Margin="0,0,4,0" Click="DuplicatePart_Click" Padding="8,4" />
+                <Button Content="حذف" Style="{StaticResource SecondaryButton}" Click="RemovePart_Click" Padding="8,4" />
             </StackPanel>
 
+            <!-- درخت پروژه — فاز ۱٫۲۱: چشم/قفل/رنگ/وضعیت -->
             <GroupBox Grid.Row="1" Header="درخت پروژه">
-                <ListBox x:Name="PartsList" SelectionChanged="PartsList_SelectionChanged" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="PartsList" ItemsSource="{Binding}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border x:Name="Row" Margin="1,1" Padding="6,4" CornerRadius="5"
+                                        Background="#FFF6F8FB" MouseLeftButtonUp="PartNode_Click"
+                                        Tag="{Binding Id}" Cursor="Hand">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" Content="{Binding EyeIcon, Mode=OneWay}" FontSize="12"
+                                                Background="Transparent" BorderThickness="0" Padding="2,0"
+                                                Click="Eye_Click" Tag="{Binding Id}" ToolTip="نمایش/مخفی" />
+                                        <Button Grid.Column="1" Content="{Binding LockIcon, Mode=OneWay}" FontSize="11"
+                                                Background="Transparent" BorderThickness="0" Padding="2,0"
+                                                Click="Lock_Click" Tag="{Binding Id}" ToolTip="قفل/بازکردن" />
+                                        <Border Grid.Column="2" Width="11" Height="11" CornerRadius="3" Margin="4,0"
+                                                Background="{Binding ColorHex, Mode=OneWay}" ToolTip="رنگ نمایشی" />
+                                        <TextBlock Grid.Column="3" Text="{Binding Name, Mode=OneWay}" FontSize="12.5"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="2,0" />
+                                        <TextBlock Grid.Column="4" Text="{Binding StatusBadge, Mode=OneWay}" FontSize="11"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
             </GroupBox>
 
-            <GroupBox Grid.Row="2" Header="پیام‌ها و اعتبارسنجی">
+            <!-- جای‌گذاری و ظاهر شیئ — فاز ۱٫۲۲/۱٫۲۳ (O4/O5/O6) -->
+            <GroupBox Grid.Row="2" Header="جای‌گذاری و ظاهر قطعهٔ انتخابی" Margin="0,6,0,0">
+                <StackPanel>
+                    <UniformGrid Columns="3">
+                        <StackPanel Margin="0,0,6,4">
+                            <TextBlock Text="X (mm)" Style="{StaticResource MutedText}" FontSize="11" />
+                            <TextBox x:Name="PlaceX" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,6,4">
+                            <TextBlock Text="Y (mm)" Style="{StaticResource MutedText}" FontSize="11" />
+                            <TextBox x:Name="PlaceY" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,0,4">
+                            <TextBlock Text="Z (mm)" Style="{StaticResource MutedText}" FontSize="11" />
+                            <TextBox x:Name="PlaceZ" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
+                        </StackPanel>
+                    </UniformGrid>
+                    <UniformGrid Columns="3">
+                        <StackPanel Margin="0,0,6,4">
+                            <TextBlock Text="چرخش (درجه)" Style="{StaticResource MutedText}" FontSize="11" />
+                            <TextBox x:Name="PlaceTheta" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,6,4">
+                            <TextBlock Text="مقیاس (۱=واقعی)" Style="{StaticResource MutedText}" FontSize="11" />
+                            <TextBox x:Name="PlaceScale" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,0,4">
+                            <TextBlock Text="شفافیت (۰-۱)" Style="{StaticResource MutedText}" FontSize="11" />
+                            <TextBox x:Name="PlaceOpacity" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
+                        </StackPanel>
+                    </UniformGrid>
+                    <UniformGrid Columns="2">
+                        <Button Content="🎨 رنگ…" Style="{StaticResource SecondaryButton}" Margin="0,0,4,4" Click="PartColor_Click" />
+                        <Button Content="⌖ قاب این قطعه" Style="{StaticResource SecondaryButton}" Margin="4,0,0,4" Click="FramePart_Click" />
+                    </UniformGrid>
+                </StackPanel>
+            </GroupBox>
+
+            <!-- نماهای نام‌دار — فاز ۱٫۱۶ -->
+            <GroupBox Grid.Row="3" Header="نماهای نام‌دار" Margin="0,6,0,0">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBox x:Name="ViewName" Width="120" Margin="0,0,4,0" />
+                        <Button Content="ذخیرهٔ نما" Style="{StaticResource SecondaryButton}" Click="SaveView_Click" Padding="8,3" />
+                    </StackPanel>
+                    <ItemsControl x:Name="ViewsList" Margin="0,4,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="0,1">
+                                    <Button Content="▶" Background="Transparent" BorderThickness="0" Padding="4,0"
+                                            Click="ApplyView_Click" Tag="{Binding Name}" ToolTip="اعمال نما" />
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" FontSize="12" Width="150" TextTrimming="CharacterEllipsis" />
+                                    <Button Content="✕" Background="Transparent" BorderThickness="0" Padding="4,0"
+                                            Click="DeleteView_Click" Tag="{Binding Name}" ToolTip="حذف نما" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </GroupBox>
+
+            <!-- پیام‌ها -->
+            <GroupBox Grid.Row="4" Header="پیام‌ها و اعتبارسنجی" Margin="0,6,0,0">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <ItemsControl x:Name="DiagnosticsList">
                         <ItemsControl.ItemTemplate>
