@@ -60,15 +60,19 @@ public static class CapabilityCatalog
         new CapabilityInfo("PLY", "PLY باینری", "Stanford PLY", CapabilityStatus.Implemented, "مش با نرمال؛ برای ابزارهای پردازش مش."),
         new CapabilityInfo("GLB", "glTF باینری (GLB)", "glTF binary", CapabilityStatus.Implemented,
             "یک‌پارچه (single-file)؛ واحد glTF متر است و تبدیل mm→m انجام می‌شود."),
-        new CapabilityInfo("3MF", "3MF", "3D Manufacturing Format", CapabilityStatus.Roadmap, "در نقشهٔ راه؛ نیازمند بستهٔ ساخت ZIP معتبر."),
-        new CapabilityInfo("AMF", "AMF", "Additive Manufacturing Format", CapabilityStatus.Roadmap, "در نقشهٔ راه."),
+        new CapabilityInfo("3MF", "3MF", "3D Manufacturing Format", CapabilityStatus.Implemented,
+            "بستهٔ ZIP استاندارد چاپ؛ از نسخهٔ ۰٫۲ پیاده و آزموده است."),
+        new CapabilityInfo("AMF", "AMF", "Additive Manufacturing Format", CapabilityStatus.Implemented,
+            "XML چاپ افزایشی؛ از نسخهٔ ۰٫۲ پیاده و آزموده است."),
         new CapabilityInfo("VRML", "VRML", "VRML 97 .wrl", CapabilityStatus.Roadmap, "در صورت تقاضا."),
         new CapabilityInfo("STEP", "STEP AP242", "STEP B-rep", CapabilityStatus.Roadmap,
             "مش مثلثی به‌عنوان B-rep معرفی نمی‌شود؛ نیازمند هستهٔ CAD با مجوز مناسب."),
         new CapabilityInfo("IGES", "IGES", "IGES .igs", CapabilityStatus.Roadmap, "مشروط به هستهٔ CAD."),
         new CapabilityInfo("FBX", "FBX", "Autodesk FBX", CapabilityStatus.Roadmap, "کتابخانهٔ باز و پایدار بررسی نشده."),
-        new CapabilityInfo("DXF", "DXF دوبعدی", "Drawing exchange", CapabilityStatus.Roadmap, "نقشهٔ دوبعدی؛ مکمل، نه مدل سه‌بعدی."),
-        new CapabilityInfo("SVG", "SVG دوبعدی", "Scalable vector", CapabilityStatus.Roadmap, "نقشهٔ دوبعدی؛ در نقشهٔ راه."),
+        new CapabilityInfo("DXF", "DXF پروفیل دندانه", "Drawing exchange", CapabilityStatus.Implemented,
+            "پروفیل مقطع دوبعدی از نقشهٔ فنی؛ مکمل، نه مدل سه‌بعدی."),
+        new CapabilityInfo("SVG", "SVG نقشهٔ فنی", "Scalable vector", CapabilityStatus.Implemented,
+            "خروجی برداری نقشهٔ فنی فارسی از موتور Drawing."),
     };
 
     public static CapabilityStatus StatusOfFamily(GearFamily family) => family switch

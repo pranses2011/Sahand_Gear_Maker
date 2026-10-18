@@ -36,7 +36,21 @@ public partial class DesignerViewModel : ObservableObject
     private GearPart? _selectedPart;
     private GearBuildResult? _lastBuild;
 
-    public ObservableCollection<GearPart> Parts => new(_project.Parts);
+    /// <summary>
+    /// نمونهٔ یکتای مجموعهٔ قطعات (فاز ۰٫۴ — رفع Q2): پیش از این هر بار خوانده‌شدن Parts
+    /// یک ObservableCollection جدید ساخته می‌شد و bindingهای قدیمی از همگام‌سازی می‌افتادند.
+    /// </summary>
+    private readonly ObservableCollection<GearPart> _parts;
+
+    public ObservableCollection<GearPart> Parts => _parts;
+
+    private void SyncPartsFromProject()
+    {
+        _parts.Clear();
+        foreach (var p in _project.Parts)
+            _parts.Add(p);
+        OnPropertyChanged(nameof(Parts));
+    }
 
     [ObservableProperty]
     private string _projectName = "پروژهٔ بدون نام";
@@ -61,6 +75,7 @@ public partial class DesignerViewModel : ObservableObject
 
     public DesignerViewModel()
     {
+        _parts = new ObservableCollection<GearPart>(_project.Parts);
         AddPartCommand.Execute(null); // شروع با یک قطعهٔ نمونه
     }
 
@@ -70,7 +85,7 @@ public partial class DesignerViewModel : ObservableObject
         _project = new GearProject { Name = "پروژهٔ بدون نام" };
         ProjectName = _project.Name;
         CurrentFilePath = null;
-        OnPropertyChanged(nameof(Parts));
+        SyncPartsFromProject();
         SelectedPart = null;
         _lastBuild = null;
         Diagnostics.Clear();
@@ -92,7 +107,7 @@ public partial class DesignerViewModel : ObservableObject
             _project = ProjectFile.Load(dlg.FileName);
             ProjectName = _project.Name;
             CurrentFilePath = dlg.FileName;
-            OnPropertyChanged(nameof(Parts));
+            SyncPartsFromProject();
             SelectedPart = _project.Parts.FirstOrDefault();
         }
         catch (Exception ex)
@@ -147,6 +162,38 @@ public partial class DesignerViewModel : ObservableObject
         }
     }
 
+    /// <summary>افزودن قطعهٔ ازپیش‌ساخته به پروژه و فهرست (فاز ۰٫۴ — همگام با نمونهٔ یکتای Parts).</summary>
+    public void AttachPart(GearPart part)
+    {
+        ArgumentNullException.ThrowIfNull(part);
+        _project.Parts.Add(part);
+        _parts.Add(part);
+    }
+
+    /// <summary>بارگذاری پروژه از مسیر داده‌شده (برای فایل‌های اخیر)؛ خطا پیام امن می‌دهد.</summary>
+    public bool OpenPath(string path)
+    {
+        try
+        {
+            _project = ProjectFile.Load(path);
+            ProjectName = _project.Name;
+            CurrentFilePath = path;
+            SyncPartsFromProject();
+            SelectedPart = _project.Parts.FirstOrDefault();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Add(new DiagnosticViewModel
+            {
+                Severity = Severity.Error,
+                Code = "SGM-UI-OPEN",
+                Message = $"بازکردن پروژه ناموفق بود: {ex.Message}",
+            });
+            return false;
+        }
+    }
+
     [RelayCommand]
     private void AddPart()
     {
@@ -156,7 +203,7 @@ public partial class DesignerViewModel : ObservableObject
             Family = GearFamily.ExternalSpur,
         };
         _project.Parts.Add(part);
-        OnPropertyChanged(nameof(Parts));
+        _parts.Add(part);
         SelectedPart = part;
     }
 
@@ -166,7 +213,7 @@ public partial class DesignerViewModel : ObservableObject
         if (part is null) return;
         _project.Parts.Remove(part);
         _project.Matings.RemoveAll(m => m.PartAId == part.Id || m.PartBId == part.Id);
-        OnPropertyChanged(nameof(Parts));
+        _parts.Remove(part);
         if (ReferenceEquals(SelectedPart, part)) SelectedPart = _project.Parts.FirstOrDefault();
     }
 
@@ -176,7 +223,7 @@ public partial class DesignerViewModel : ObservableObject
         if (part is null) return;
         var copy = part.Clone(part.Name + " (کپی)");
         _project.Parts.Add(copy);
-        OnPropertyChanged(nameof(Parts));
+        _parts.Add(copy);
         SelectedPart = copy;
     }
 

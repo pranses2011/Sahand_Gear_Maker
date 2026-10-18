@@ -3,18 +3,20 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              FlowDirection="RightToLeft">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="24" MaxWidth="900" HorizontalAlignment="Center">
+        <StackPanel Margin="24" MaxWidth="940" HorizontalAlignment="Center">
 
             <TextBlock Text="به طراح چرخ‌دنده سهند خوش آمدید" Style="{StaticResource TitleText}" Margin="0,0,0,6" />
-            <TextBlock Style="{StaticResource MutedText}" Margin="0,0,0,20"
+            <TextBlock Style="{StaticResource MutedText}" Margin="0,0,0,4"
                        Text="ابزار پارامتریک طراحی چرخ‌دنده و خروجی مش برای CAD/چاپ سه‌بعدی — کاملاً آفلاین" />
+            <TextBlock Style="{StaticResource MutedText}" Margin="0,0,0,20" x:Name="VersionLine"
+                       FlowDirection="LeftToRight" HorizontalAlignment="Right" />
 
             <UniformGrid Columns="2">
                 <Border Background="White" CornerRadius="10" Padding="18" Margin="0,0,10,10">
                     <StackPanel>
-                        <TextBlock Text="⚙ شروع سریع" Style="{StaticResource SectionText}" Margin="0,0,0,6" />
+                        <TextBlock Text="🚀 شروع سریع" Style="{StaticResource SectionText}" Margin="0,0,0,6" />
                         <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap"
-                                   Text="۱) در تب «طراح چرخ‌دنده» پارامترها را وارد کنید. ۲) پیام‌های اعتبارسنجی را ببینید. ۳) مدل را بچرخانید. ۴) از تب «خروجی» فایل STL/OBJ/PLY/GLB بگیرید." />
+                                   Text="۱) در تب «طراح چرخ‌دنده» پارامترها را وارد کنید. ۲) پیام‌های اعتبارسنجی را ببینید. ۳) مدل را با درگ/چرخ ماوس بچرخانید و با Shift جابه‌جا کنید. ۴) از تب «خروجی» فایل STL/OBJ/PLY/GLB/3MF/AMF/DXF بگیرید." />
                     </StackPanel>
                 </Border>
 
@@ -26,22 +28,35 @@
                     </StackPanel>
                 </Border>
 
+                <!-- وضعیت قابلیت‌ها — فاز ۰٫۲: از CapabilityCatalog تغذیه می‌شود، نه متن ثابت دستی -->
                 <Border Background="White" CornerRadius="10" Padding="18" Margin="0,0,10,10">
                     <StackPanel>
                         <TextBlock Text="🧭 وضعیت قابلیت‌ها" Style="{StaticResource SectionText}" Margin="0,0,0,6" />
-                        <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap"
-                                   Text="پیاده‌سازی‌شده: خارجی مستقیم. محدود: مارپیچ، جناغی، داخلی، شانه. نقشهٔ راه: حلزونی، مخروطی، سیاره‌ای و فرمت‌های B-rep (STEP/IGES) — موارد راه‌راه، مدل جعلی نمی‌سازند." />
+                        <TextBlock x:Name="FamiliesStatus" Style="{StaticResource BaseText}" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 
                 <Border Background="White" CornerRadius="10" Padding="18" Margin="10,0,0,10">
                     <StackPanel>
                         <TextBlock Text="📐 ماتریس فرمت خروجی" Style="{StaticResource SectionText}" Margin="0,0,0,6" />
-                        <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap"
-                                   Text="فعال: STL (باینری/متنی)، OBJ+MTL، PLY، GLB — همه «مش مثلثی» و با اعتبارسنجی پس از نوشتن. ناتمام: STEP/IGES/3MF/DXF (به‌دلیل نبود هستهٔ CAD معرفی نمی‌شوند)." />
+                        <TextBlock x:Name="FormatsStatus" Style="{StaticResource BaseText}" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
             </UniformGrid>
+
+            <!-- پروژه‌های اخیر — فاز ۵٫۳ -->
+            <GroupBox x:Name="RecentBox" Header="پروژه‌های اخیر" Margin="0,10,0,0" Visibility="Collapsed">
+                <ItemsControl x:Name="RecentList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left"
+                                    Margin="0,3" Padding="10,6" Click="OpenRecent_Click" Tag="{Binding}">
+                                <TextBlock Text="{Binding Title, Mode=OneWay}" />
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </GroupBox>
 
             <GroupBox Header="پروژهٔ نمونه" Margin="0,10">
                 <StackPanel>

@@ -56,4 +56,18 @@ public partial class MainWindow : Window
     }
 
     public void SetStatus(string text) => StatusText.Text = text;
+
+    /// <summary>بازکردن مسیر پروژه از فهرست «پروژه‌های اخیر» و پرش به تب طراح (فاز ۵٫۳).</summary>
+    public void OpenPath(string path)
+    {
+        if (Designer.OpenPath(path))
+        {
+            NavList.SelectedIndex = 1;
+            StatusText.Text = $"باز شد: {path}";
+        }
+        else
+        {
+            StatusText.Text = "بازکردن فایل ناموفق بود — پیام‌های طراح را ببینید.";
+        }
+    }
 }
