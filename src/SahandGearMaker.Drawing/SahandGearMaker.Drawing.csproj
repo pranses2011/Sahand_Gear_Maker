@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <RootNamespace>SahandGearMaker.Drawing</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- فونت وزیرمتن (مجوز OFL) به‌عنوان منبع تعبیه‌شده برای نقشه‌های PDF -->
+    <EmbeddedResource Include="Assets\Vazirmatn-Regular.ttf" />
+    <EmbeddedResource Include="Assets\LICENSE-OFL.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SahandGearMaker.Domain\SahandGearMaker.Domain.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Math\SahandGearMaker.Math.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Geometry\SahandGearMaker.Geometry.csproj" />
+  </ItemGroup>
+
+</Project>
