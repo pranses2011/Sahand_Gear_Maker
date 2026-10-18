@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SahandGearMaker.Persistence")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+13e34126114aea95f335625052e690a52169e009")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fe273344c74079534488b593c9582f09ea0f3dfd")]
 [assembly: System.Reflection.AssemblyProductAttribute("SahandGearMaker.Persistence")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SahandGearMaker.Persistence")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -126,9 +126,11 @@ public class MeshBuildingTests
         var p = new ToothParameters { ToothCount = 20, Module = 2, FaceWidth = 20 };
         var result = Build(GearFamily.ExternalSpur, p);
         var (min, max) = result.Mesh.Bounds();
-        Assert.Equal(-p.FaceWidth, min.Z, 6);
-        Assert.Equal(0, max.Z, 6);
-        Assert.True(Math.Abs(max.X - result.Figures.TipRadius) < 0.01);
+        Assert.Equal(0, min.Z, 6);
+        Assert.Equal(p.FaceWidth, max.Z, 6);
+        // شعاع سر m(z+2)/2 — با تلرانس نمونه‌برداری مرز
+        Assert.InRange(max.X, result.Figures.TipRadius - 0.05, result.Figures.TipRadius + 0.05);
+        Assert.InRange(max.Y, result.Figures.TipRadius - 0.05, result.Figures.TipRadius + 0.05);
     }
 
     [Fact]

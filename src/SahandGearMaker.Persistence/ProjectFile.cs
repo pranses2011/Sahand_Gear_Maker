@@ -20,6 +20,7 @@ public static class ProjectFile
         WriteIndented = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
         NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
+        PropertyNameCaseInsensitive = true,
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping, // متن فارسی بدون escape
     };
 
@@ -67,12 +68,8 @@ public static class ProjectFile
             ? v.GetInt32()
             : CurrentSchemaVersion;
 
-        var project = version <= CurrentSchemaVersion
-            ? JsonSerializer.Deserialize<GearProject>(json, Options)
-            : LoadWithUnknownPreservation(json);
-
-        if (project is null)
-            throw new InvalidOperationException("فایل پروژه قابل خواندن نیست.");
+        // همیشه با حفظ دادهٔ ناشناخته — نسخهٔ جدیدتر یا قدیمی‌تر، چیزی حذف نمی‌شود
+        var project = LoadWithUnknownPreservation(json) ?? throw new InvalidOperationException("فایل پروژه قابل خواندن نیست.");
 
         Migrate(project, version);
         return project;
@@ -84,39 +81,19 @@ public static class ProjectFile
     /// </summary>
     private static GearProject LoadWithUnknownPreservation(string json)
     {
-        var project = new GearProject();
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
+        var project = JsonSerializer.Deserialize<GearProject>(json, Options) ?? new GearProject();
 
-        foreach (var prop in root.EnumerateObject())
+        using var doc = JsonDocument.Parse(json);
+        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            switch (prop.Name)
-            {
-                case nameof(GearProject.Name):
-                    project.Name = prop.Value.GetString() ?? project.Name;
-                    break;
-                case nameof(GearProject.SchemaVersion):
-                    project.SchemaVersion = prop.Value.GetInt32();
-                    break;
-                case nameof(GearProject.DisplayUnit):
-                    project.DisplayUnit = prop.Value.GetInt32() == 1 ? LengthUnit.Inch : LengthUnit.Millimeter;
-                    break;
-                case nameof(GearProject.CreatedUtc):
-                    project.CreatedUtc = prop.Value.GetDateTime();
-                    break;
-                case nameof(GearProject.ModifiedUtc):
-                    project.ModifiedUtc = prop.Value.GetDateTime();
-                    break;
-                case nameof(GearProject.Parts):
-                    project.Parts = JsonSerializer.Deserialize<List<GearPart>>(prop.Value.GetRawText(), Options) ?? new();
-                    break;
-                case nameof(GearProject.Matings):
-                    project.Matings = JsonSerializer.Deserialize<List<MatingRelation>>(prop.Value.GetRawText(), Options) ?? new();
-                    break;
-                default:
-                    (project.UnknownData ??= new())[prop.Name] = JsonSerializer.Deserialize<object>(prop.Value.GetRawText(), Options);
-                    break;
-            }
+            nameof(GearProject.SchemaVersion), nameof(GearProject.Name), nameof(GearProject.CreatedUtc),
+            nameof(GearProject.ModifiedUtc), nameof(GearProject.DisplayUnit),
+            nameof(GearProject.Parts), nameof(GearProject.Matings), nameof(GearProject.UnknownData),
+        };
+        foreach (var prop in doc.RootElement.EnumerateObject())
+        {
+            if (!known.Contains(prop.Name))
+                (project.UnknownData ??= new())[prop.Name] = JsonSerializer.Deserialize<object>(prop.Value.GetRawText(), Options);
         }
         return project;
     }
