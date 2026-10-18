@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SahandGearMaker.Math")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+32fca72990581ee03f83cde8bd4fe1a0d9021bce")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9c4562124dbac101074e40920da995d96f109c56")]
 [assembly: System.Reflection.AssemblyProductAttribute("SahandGearMaker.Math")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SahandGearMaker.Math")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

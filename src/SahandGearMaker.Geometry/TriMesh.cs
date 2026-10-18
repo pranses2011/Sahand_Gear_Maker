@@ -18,6 +18,9 @@ public sealed class TriMesh
     public int VertexCount => _vertices.Count;
     public int TriangleCount => _triangles.Count;
 
+    /// <summary>دسترسی مستقیم به رأس با ایندکس (برای مثلث‌بندی‌های زاویه‌محور).</summary>
+    public Vector3 VertexAt(int index) => _vertices[index];
+
     public int AddVertex(Vector3 v)
     {
         _vertices.Add(v);

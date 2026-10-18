@@ -4,18 +4,21 @@ using SahandGearMaker.MathX;
 namespace SahandGearMaker.Geometry;
 
 /// <summary>
-/// سازندهٔ مش شانهٔ مستقیم/مارپیچ — بلوک با دندانه‌های ذوزنقه‌ای (سند ۰۳، خانوادهٔ رک).
+/// سازندهٔ مش شانهٔ مستقیم/مارپیچ — بلوک منشوری با مرز دندانه‌دار (سند ۰۳، خانوادهٔ رک).
 /// مختصات: طول در X، ارتفاع دندانه در +Y، پهنا در Z؛ خط گام روی y=0.
-/// مرز دندانه‌دار رویهٔ بالا، «خط آفست» هم‌شکل در عمق بدنه، و مستطیل بیرونی؛
-/// نوار دندانه‌آفست + مستطیل ⇒ سطح بستهٔ آب‌بند.
-/// شانهٔ مارپیچ با جابه‌جایی تدریجی برش‌ها در X ساخته می‌شود.
+///
+/// توپولوژی آب‌بند:
+///   - برش = چندضلعی بستهٔ سادهٔ CCW با n رأس (بدون نقطهٔ تکراری)؛
+///   - دیوارهٔ جانبی بین برش‌های متوالی روی همهٔ n یال مرزی؛
+///   - درپوش جلو/عقب = بادبزک از گوشهٔ پایین-راست به همهٔ رأس‌های دیگر (n مثلث).
+/// هر یال مرزی دقیقاً یک‌بار در دیواره و یک‌بار در درپوش مصرف می‌شود.
 /// </summary>
 public static class RackMeshBuilder
 {
     public static GearBuildResult Build(
         GearFamily family,
         ToothParameters teeth,
-        BodyFeatures qualityOnly,
+        BodyFeatures bodyParams,
         GeometrySettings quality)
     {
         ArgumentNullException.ThrowIfNull(teeth);
@@ -30,20 +33,29 @@ public static class RackMeshBuilder
         var fig = GearFiguresCalculator.Compute(family, teeth);
 
         double pitch = Math.PI * teeth.Module;
-        // طول شانه از فیلد شعاع دایرهٔ حفره‌ها (در شانه به‌عنوان «طول» تفسیر می‌شود) یا پیش‌فرض
-        double requestedLength = qualityOnly.LighteningHoleCircleRadius > 0
-            ? qualityOnly.LighteningHoleCircleRadius
+        // طول شانه از فیلد شعاع دایرهٔ حفره‌ها (در شانه = طول مفاز) یا پیش‌فرض
+        double requestedLength = bodyParams.LighteningHoleCircleRadius > 0
+            ? bodyParams.LighteningHoleCircleRadius
             : 10.0 * pitch;
         int toothCount = Math.Max(1, (int)Math.Floor(requestedLength / pitch));
         double length = (toothCount + 0.5) * pitch;
 
+        // ---- برش بستهٔ CCW (بدون نقطهٔ تکراری) ----
         var profile = new RackProfile(teeth, length);
-        var toothed = profile.BoundaryXY(); // فقط بخش دندانه‌دار بالای خط گام، CCW
-
-        double rootY = -teeth.DedendumCoefficient * teeth.Module; // خط ریشه
-        double offset = rootY - Math.Max(0.5 * teeth.Module, 0.5); // خط آفست داخل بدنه
-        double bottom = rootY - 2.0 * teeth.DedendumCoefficient * teeth.Module;
-        double half = length / 2.0;
+        var rawSection = profile.ClosedSection(); // نقطهٔ اول در انتها تکرار شده
+        var section = new List<(double X, double Y)>(rawSection.Count);
+        foreach (var p in rawSection)
+        {
+            bool dup = false;
+            foreach (var q in section)
+                if (Math.Abs(p.X - q.X) < 1e-7 && Math.Abs(p.Y - q.Y) < 1e-7)
+                    dup = true;
+            if (!dup)
+                section.Add(p);
+        }
+        int n = section.Count; // بدون نقطهٔ بستن
+        if (n < 3)
+            throw new GeometryBuildException("برش شانه رأس کافی ندارد.", errors);
 
         var mesh = new TriMesh();
         double width = Math.Max(teeth.FaceWidth, 1e-6);
@@ -51,60 +63,31 @@ public static class RackMeshBuilder
         int slices = helical ? Math.Clamp(quality.AxialSliceCount, 4, 400) : 2;
         double shiftFactor = Math.Tan(teeth.HelixAngle); // شیب نسبی X به Z
 
-        double t0 = toothed[0].X;
-        double t1 = toothed[^1].X;
-
-        var toothLoops = new List<int>[slices + 1];
-        var offsetLoops = new List<int>[slices + 1];
-        var rectLoops = new List<int>[slices + 1];
-
+        // ---- حلقه‌های برش ----
+        var loops = new List<int>[slices + 1];
         for (int s = 0; s <= slices; s++)
         {
             double z = width * s / slices;
             double dx = helical ? shiftFactor * z : 0.0;
-
-            toothLoops[s] = toothed.Select(p => mesh.AddVertex(new Vector3(p.X + dx, p.Y, z))).ToList();
-            offsetLoops[s] = toothed.Select(p => mesh.AddVertex(new Vector3(p.X + dx, offset, z))).ToList();
-            rectLoops[s] = new List<int>
-            {
-                mesh.AddVertex(new Vector3(t1 + dx, offset, z)), // راست-بالا (شروع CCW از راست)
-                mesh.AddVertex(new Vector3(half + dx, offset, z)),
-                mesh.AddVertex(new Vector3(half + dx, bottom, z)),
-                mesh.AddVertex(new Vector3(-half + dx, bottom, z)),
-                mesh.AddVertex(new Vector3(-half + dx, offset, z)),
-                mesh.AddVertex(new Vector3(t0 + dx, offset, z)), // چپ-بالا
-            };
+            loops[s] = new List<int>(n);
+            foreach (var (px, py) in section)
+                loops[s].Add(mesh.AddVertex(new Vector3(px + dx, py, z)));
         }
 
+        // ---- دیوارهٔ جانبی بین برش‌های متوالی روی همهٔ یال‌های مرزی ----
         for (int s = 0; s < slices; s++)
         {
-            VertexPool.WallCCW(mesh, toothLoops[s], toothLoops[s + 1]);   // رویهٔ دندانه‌دار
-            VertexPool.WallCCW(mesh, offsetLoops[s], offsetLoops[s + 1]); // خط آفست
-            VertexPool.WallCCW(mesh, rectLoops[s], rectLoops[s + 1]);     // بدنهٔ مستطیلی
-        }
-
-        // نوار بین مرز دندانه‌دار و آفست — مرز CCW (بالا) و آفست قرینه (پایین)
-        for (int sIdx = 0; sIdx <= slices; sIdx++)
-        {
-            var top = toothLoops[sIdx];
-            var low = offsetLoops[sIdx];
-            int n = top.Count;
             for (int i = 0; i < n; i++)
             {
                 int j = (i + 1) % n;
-                mesh.AddTriangle(top[i], low[i], low[j]);
-                mesh.AddTriangle(top[i], low[j], top[j]);
+                mesh.AddTriangle(loops[s][i], loops[s + 1][i], loops[s + 1][j]);
+                mesh.AddTriangle(loops[s][i], loops[s + 1][j], loops[s][j]);
             }
         }
 
-        // درپوش‌های دو سر (صفحه‌های YZ) — از قلهٔ دندانهٔ انتهایی تا گوشهٔ مستطیل
-        for (int s = 0; s < slices; s++)
-        {
-            EndWall(mesh, toothLoops[s][^1], offsetLoops[s][^1], rectLoops[s][1], rectLoops[s][2],
-                             toothLoops[s + 1][^1], offsetLoops[s + 1][^1], rectLoops[s + 1][1], rectLoops[s + 1][2]);
-            EndWall(mesh, toothLoops[s][0], offsetLoops[s][0], rectLoops[s][5], rectLoops[s][4],
-                             toothLoops[s + 1][0], offsetLoops[s + 1][0], rectLoops[s + 1][5], rectLoops[s + 1][4]);
-        }
+        // ---- درپوش‌ها: بادبزک از گوشهٔ پایین-راست (رأس ۰) به همهٔ رأس‌های دیگر ----
+        FanCap(mesh, loops[0], flip: true);
+        FanCap(mesh, loops[slices], flip: false);
 
         diags.Add(new GearDiagnostic(DiagnosticCodes.PreviewMeshCoarse, Severity.Info,
             $"شانه با {toothCount} دندانه و طول مؤثر {length:F2} میلی‌متر ساخته شد."));
@@ -119,14 +102,22 @@ public static class RackMeshBuilder
         };
     }
 
-    /// <summary>دیوار سر شانه: زنجیرهٔ (قلهٔ دندانهٔ انتهایی، آفست، گوشهٔ مستطیل بالا، گوشهٔ پایین) بین دو برش.</summary>
-    private static void EndWall(TriMesh mesh, int t0, int o0, int r0, int b0, int t1, int o1, int r1, int b1)
+    /// <summary>
+    /// بادبزک از رأس ۰ (گوشهٔ پایین-راست در برش CCW) به رأس‌های 1..n−1؛
+    /// هر یال مرزی و هر قطر دقیقاً یک‌بار مصرف می‌شود.
+    /// </summary>
+    private static void FanCap(TriMesh mesh, List<int> loop, bool flip)
     {
-        mesh.AddTriangle(t0, o0, o1);
-        mesh.AddTriangle(t0, o1, t1);
-        mesh.AddTriangle(o0, r0, r1);
-        mesh.AddTriangle(o0, r1, o1);
-        mesh.AddTriangle(r0, b0, b1);
-        mesh.AddTriangle(r0, b1, r1);
+        int n = loop.Count;
+        int o = loop[0];
+        for (int i = 1; i < n; i++)
+        {
+            int a = loop[i];
+            int b = loop[(i + 1) % n];
+            if (flip)
+                mesh.AddTriangle(b, a, o);
+            else
+                mesh.AddTriangle(o, a, b);
+        }
     }
 }

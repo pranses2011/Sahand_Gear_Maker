@@ -81,7 +81,7 @@ public sealed class RackProfile : IProfileGenerator
     }
 
     /// <summary>
-    /// نقاط مرز دندانه‌دار (رویهٔ بالای شانه) — CCW از لبهٔ راست تا لبهٔ چپ.
+    /// نقاط مرز دندانه‌دار (رویهٔ بالای شانه) — از لبهٔ راست تا لبهٔ چپ.
     /// شامل دیواره‌های جانبی و کف نمی‌شود؛ سازندهٔ مش خودشان را می‌سازد.
     /// </summary>
     public List<(double X, double Y)> BoundaryXY()
@@ -116,6 +116,25 @@ public sealed class RackProfile : IProfileGenerator
             cursor = rootLeft;
         }
         pts.Add((cursor, rootY));
+        return pts;
+    }
+
+    /// <summary>
+    /// چندضلعی بستهٔ سادهٔ CCW برش عرضی شانه (شامل کف و دیواره‌ها)؛
+    /// نقطهٔ اول در انتها تکرار شده است. برای مثلث‌بندی درپوش‌ها.
+    /// </summary>
+    public List<(double X, double Y)> ClosedSection()
+    {
+        var top = BoundaryXY(); // راست → چپ روی خط دندانه‌ها
+        var pts = new List<(double, double)>(top.Count + 6);
+        double half = _length / 2.0;
+        double bottomY = -_thickness;
+
+        pts.Add((half, bottomY));   // شروع: پایین-راست
+        foreach (var p in top)
+            pts.Add(p);             // بالا رفتن از راست و عبور از دندانه‌ها به چپ
+        pts.Add((-half, bottomY)); // پایین آمدن از چپ
+        pts.Add(pts[0]);           // نقطهٔ بستن
         return pts;
     }
 }

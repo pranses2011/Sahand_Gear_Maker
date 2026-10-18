@@ -64,7 +64,6 @@ public static class CylindricalGearMeshBuilder
         b.ComputeRadii();
         b.BuildSlices(family, quality);
         b.BuildProfileLoops();
-        b.BuildSpokeRing(quality);
         b.BuildCaps(body);
         b.BuildToothWalls();
         b.BuildBoreWalls(body);
@@ -109,7 +108,6 @@ public static class CylindricalGearMeshBuilder
         public double FaceWidth => teeth.FaceWidth;
         public double BoreRadius { get; set; }
         public double SpokeRadius { get; set; }
-        public (double Theta, double Radius)[] SpokeSamples { get; set; } = Array.Empty<(double, double)>();
         public double RootRadiusUsed { get; set; }
 
         /// <summary>شعاع مرز در زاویهٔ دلخواه — درون‌یابی خطی روی نقاط مرز (مرز نسبت به مرکز ستاره‌ای است).</summary>
@@ -176,28 +174,19 @@ public static class CylindricalGearMeshBuilder
 
         if (family == GearFamily.ExternalHerringbone)
         {
-            double gap = Math.Clamp(0.05 * w, 0, w * 0.2);
-            double half = (w - gap) / 2.0;
-            int n = Math.Clamp(q.AxialSliceCount, 4, 200); // برش‌های هر نیمه
-            double rPitch = b.Fig.PitchRadius;
-            double beta = b.Fig.HelixAngleUsed;
-            double leadFactor = Math.Tan(beta) / rPitch;
+            // جناغی پیوسته (بدون گپ مرکزی در این نسخه — محدودیت مستندشده):
+            // پیچش صفر در وسط، مثبت در نیمهٔ پایین و منفی در نیمهٔ بالا
+            int n = Math.Clamp(q.AxialSliceCount, 4, 200);
+            double half = w / 2.0;
+            double leadFactor = Math.Tan(b.Fig.HelixAngleUsed) / b.Fig.PitchRadius;
 
-            // نیمهٔ پایینی (پیچش مثبت) و بالایی (منفی) + گپ مرکزی
-            b.Pool.AddSlice(+leadFactor * 0.0, 0);
+            b.Pool.AddSlice(0.0, 0);
+            for (int i = 1; i <= n; i++)
+                b.Pool.AddSlice(leadFactor * (half * i / n), half * i / n);
             for (int i = 1; i <= n; i++)
             {
                 double zLocal = half * i / n;
-                b.Pool.AddSlice(leadFactor * zLocal, zLocal);
-            }
-            double zHub = half;
-            for (int i = 0; i <= 4; i++) // گپ مرکزی
-                b.Pool.AddSlice(0.0, zHub + gap * i / 4);
-            double zTopStart = half + gap;
-            for (int i = 0; i <= n; i++)
-            {
-                double zLocal = half * (1.0 - (double)i / n);
-                b.Pool.AddSlice(-leadFactor * zLocal, zTopStart + (half - zLocal) + 0); // پیچش معکوس
+                b.Pool.AddSlice(-leadFactor * zLocal, half + zLocal);
             }
             return;
         }
@@ -228,67 +217,23 @@ public static class CylindricalGearMeshBuilder
         }
     }
 
-    private static void BuildSpokeRing(this BuilderContext b, GeometrySettings q)
-    {
-        int n = Math.Clamp(CircleProfile.SegmentsForCircle(Math.Max(b.SpokeRadius, 1e-6), b.Tol), 16, 360);
-        var samples = new (double, double)[n];
-        for (int i = 0; i < n; i++)
-        {
-            double theta = 2.0 * Math.PI * i / n;
-            samples[i] = (theta, b.BoundaryRadiusAt(theta));
-        }
-        b.SpokeSamples = samples;
-
-        for (int s = 0; s < b.Pool.SliceCount; s++)
-        {
-            double twist = b.Pool.Twist(s);
-            var ids = new List<int>(n);
-            for (int i = 0; i < n; i++)
-            {
-                double t = samples[i].Item1 + twist;
-                ids.Add(b.Pool.Free(s, samples[i].Item2 * Math.Cos(t), samples[i].Item2 * Math.Sin(t)));
-            }
-            b.Pool.SetSpokeLoop(s, ids);
-        }
-    }
-
     private static void BuildCaps(this BuilderContext b, BodyFeatures body)
     {
         int top = b.Pool.SliceCount - 1;
 
-        // صفحهٔ پایین (نرمال −Z)
-        if (b.SpokeRadius <= 1e-9)
+        if (b.BoreRadius <= 1e-9)
         {
-            var center = b.Pool.Center(0);
-            VertexPool.DiskNZ(b.Mesh, b.Pool.SpokeLoop(0), center);
-        }
-        else if (body.KeywayWidth > 0 && !b.Internal)
-        {
-            var kw = b.Pool.RingWithKeyway(0, b.BoreRadius, body.KeywayWidth, body.KeywayDepth, b.Tol);
-            VertexPool.AnnulusNZ(b.Mesh, kw, b.Pool.SpokeLoop(0));
-        }
-        else
-        {
-            var bore = b.Pool.Ring(0, BoreRing, b.BoreRadius, b.Tol);
-            VertexPool.AnnulusNZ(b.Mesh, bore, b.Pool.SpokeLoop(0));
+            // بدون بور: صفحه از خود مرز پروفیل تا مرکز باز می‌شود (دیسک ستاره‌ای)
+            VertexPool.DiskNZ(b.Mesh, b.Pool.ProfileLoop(0), b.Pool.Center(0));
+            VertexPool.DiskZ(b.Mesh, b.Pool.ProfileLoop(top), b.Pool.Center(top));
+            return;
         }
 
-        // صفحهٔ بالا (نرمال +Z)
-        if (b.SpokeRadius <= 1e-9)
-        {
-            var center = b.Pool.Center(top);
-            VertexPool.DiskZ(b.Mesh, b.Pool.SpokeLoop(top), center);
-        }
-        else if (body.KeywayWidth > 0 && !b.Internal)
-        {
-            var kw = b.Pool.RingWithKeyway(top, b.BoreRadius, body.KeywayWidth, body.KeywayDepth, b.Tol);
-            VertexPool.AnnulusZ(b.Mesh, kw, b.Pool.SpokeLoop(top));
-        }
-        else
-        {
-            var bore = b.Pool.Ring(top, BoreRing, b.BoreRadius, b.Tol);
-            VertexPool.AnnulusZ(b.Mesh, bore, b.Pool.SpokeLoop(top));
-        }
+        // با بور: نوار بور↔مرز پروفیل — زاویه‌ها از حلقهٔ بور می‌آیند تا یال دیوارهٔ بور مشترک بماند
+        var bottomBore = BoreLoop(b, 0, body);
+        var topBore = BoreLoop(b, top, body);
+        VertexPool.AnnulusNZ(b.Mesh, bottomBore, b.Pool.ProfileLoop(0));
+        VertexPool.AnnulusZ(b.Mesh, topBore, b.Pool.ProfileLoop(top));
     }
 
     private static void BuildToothWalls(this BuilderContext b)
@@ -420,36 +365,13 @@ public static class CylindricalGearMeshBuilder
 
     private static void BuildHerringboneGap(this BuilderContext b, GearFamily family, ToothParameters teeth)
     {
-        if (family != GearFamily.ExternalHerringbone)
-            return;
-        double w = teeth.FaceWidth;
-        double gap = Math.Clamp(0.05 * w, 0, w * 0.2);
-        if (gap <= 1e-9)
-            return;
-
-        double half = (w - gap) / 2.0;
-        double zLo = half, zHi = half + gap;
-        double tol = b.Tol;
-        int segments = Math.Clamp(CircleProfile.SegmentsForCircle(b.RootRadiusUsed, tol), 24, 360);
-
-        var outerLo = b.Pool.RingAtZ(zLo, GapRing + "-o-lo", b.RootRadiusUsed, tol);
-        var outerHi = b.Pool.RingAtZ(zHi, GapRing + "-o-hi", b.RootRadiusUsed, tol);
-        VertexPool.WallCCW(b.Mesh, outerLo, outerHi);
-
-        if (b.BoreRadius > 1e-9)
+        // در این نسخه، جناغی به‌صورت «پیوسته بدون گپ مرکزی» ساخته می‌شود؛
+        // گپ استوانه‌ای مرکزی نیازمند برش‌بندی دیوارهٔ بور در ارتفاع گپ است که در نقشهٔ راه است.
+        if (family == GearFamily.ExternalHerringbone)
         {
-            var innerLo = b.Pool.RingAtZ(zLo, GapRing + "-i-lo", b.BoreRadius, tol);
-            var innerHi = b.Pool.RingAtZ(zHi, GapRing + "-i-hi", b.BoreRadius, tol);
-            VertexPool.WallCCW(b.Mesh, innerLo, innerHi);
-            VertexPool.AnnulusNZ(b.Mesh, innerLo, outerLo); // کف گپ
-            VertexPool.AnnulusZ(b.Mesh, innerHi, outerHi);  // سر گپ
-        }
-        else
-        {
-            var cLo = b.Pool.CenterAtZ(zLo);
-            var cHi = b.Pool.CenterAtZ(zHi);
-            VertexPool.DiskNZ(b.Mesh, outerLo, cLo);
-            VertexPool.DiskZ(b.Mesh, outerHi, cHi);
+            b.ExtraWarnings.Add(new GearDiagnostic(
+                DiagnosticCodes.HerringboneGapApprox, Severity.Info,
+                "جناغی بدون گپ مرکزی ساخته می‌شود؛ گپ استوانه‌ای در نسخه‌های بعدی افزوده می‌شود."));
         }
     }
 }

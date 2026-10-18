@@ -16,6 +16,7 @@ internal sealed class VertexPool
 
     // حلقه‌های شعاعی: کلید = (slice, دایره)
     private readonly Dictionary<(int Slice, string Ring), List<int>> _rings = new();
+    private readonly Dictionary<(int Slice, string Ring), List<double>> _ringAngles = new();
 
     // حلقه‌های خارج از مرکز: (slice, مرکز, شعاع)
     private readonly Dictionary<(int Slice, double Cx, double Cy, double R), List<int>> _holes = new();
@@ -108,14 +109,21 @@ internal sealed class VertexPool
 
         int segments = CircleProfile.SegmentsForCircle(radius, chordTol);
         var ids = new List<int>(segments);
+        var angles = new List<double>(segments);
         for (int i = 0; i < segments; i++)
         {
-            double a = 2.0 * Math.PI * i / segments + _twists[slice];
-            ids.Add(_mesh.AddVertex(new Vector3(radius * Math.Cos(a), radius * Math.Sin(a), _zs[slice])));
+            double a = 2.0 * Math.PI * i / segments;
+            angles.Add(a);
+            ids.Add(_mesh.AddVertex(new Vector3(radius * Math.Cos(a + _twists[slice]), radius * Math.Sin(a + _twists[slice]), _zs[slice])));
         }
         _rings[key] = ids;
+        _ringAngles[key] = angles;
         return ids;
     }
+
+    /// <summary>زاویه‌های پایهٔ حلقهٔ ثبت‌شده (پیش از پیچش) — برای هم‌زاویه‌سازی حلقهٔ پره.</summary>
+    public IReadOnlyList<double> RingBaseAngles(int slice, string ringKey)
+        => _ringAngles.TryGetValue((slice, ringKey), out var a) ? a : Array.Empty<double>();
 
     /// <summary>حلقهٔ بور با شیار خار (برش + مستطیل خار در بالای دایره).</summary>
     public List<int> RingWithKeyway(int slice, double radius, double keywayWidth, double keywayDepth, double chordTol)
@@ -183,18 +191,55 @@ internal sealed class VertexPool
 
     // ---------- سازنده‌های وجه با جهت‌گیری صحیح نرمال ----------
 
-    /// <summary>دیوار بین دو حلقه هم‌تعداد؛ CCW حلقه ⇒ نرمال رو به بیرون ماده.</summary>
+    /// <summary>
+    /// دیوار بین دو حلقه (احتمالاً ناهم‌تعداد) با «قدم‌زدن ادغامی»:
+    /// هر گام، حلقه‌ای را جلو می‌برد که زاویهٔ بعدی کوچکتری دارد؛ نتیجه مش آب‌بند است.
+    /// CCW حلقه‌ها ⇒ نرمال رو به بیرون ماده.
+    /// </summary>
     public static void WallCCW(TriMesh mesh, IReadOnlyList<int> lower, IReadOnlyList<int> upper)
     {
-        int n = Math.Min(lower.Count, upper.Count);
-        if (n < 3 || lower.Count != upper.Count)
-            throw new InvalidOperationException("دیوار بین حلقه‌های ناهم‌تعداد ساخته نمی‌شود.");
-        for (int i = 0; i < n; i++)
+        if (lower.Count < 3 || upper.Count < 3)
+            throw new InvalidOperationException("دیوار به حلقهٔ با کمتر از ۳ رأس ساخته نمی‌شود.");
+        if (lower.Count == upper.Count)
         {
-            int j = (i + 1) % n;
-            mesh.AddTriangle(upper[i], upper[j], lower[j]);
-            mesh.AddTriangle(upper[i], lower[j], lower[i]);
+            int n = lower.Count;
+            for (int i = 0; i < n; i++)
+            {
+                int j = (i + 1) % n;
+                mesh.AddTriangle(upper[i], upper[j], lower[j]);
+                mesh.AddTriangle(upper[i], lower[j], lower[i]);
+            }
+            return;
         }
+
+        int li = 0, ui = 0;
+        int total = lower.Count + upper.Count;
+        for (int step = 0; step < total && (li < lower.Count || ui < upper.Count); step++)
+        {
+            double lNext = AngleOf(mesh, lower[(li + 1) % lower.Count]);
+            double uNext = AngleOf(mesh, upper[(ui + 1) % upper.Count]);
+            bool advanceUpper;
+            if (li >= lower.Count) advanceUpper = true;
+            else if (ui >= upper.Count) advanceUpper = false;
+            else advanceUpper = uNext <= lNext;
+
+            if (advanceUpper)
+            {
+                mesh.AddTriangle(upper[ui % upper.Count], upper[(ui + 1) % upper.Count], lower[li % lower.Count]);
+                ui++;
+            }
+            else
+            {
+                mesh.AddTriangle(upper[ui % upper.Count], lower[(li + 1) % lower.Count], lower[li % lower.Count]);
+                li++;
+            }
+        }
+    }
+
+    private static double AngleOf(TriMesh mesh, int vertex)
+    {
+        var v = mesh.VertexAt(vertex);
+        return Math.Atan2(v.Y, v.X);
     }
 
     /// <summary>حلقه با مرکز → دیسک تخت با نرمال +Z.</summary>
@@ -219,12 +264,15 @@ internal sealed class VertexPool
         }
     }
 
-    /// <summary>نوار بین دو حلقه هم‌تعداد در یک صفحه؛ CCW ⇒ نرمال +Z.</summary>
+    /// <summary>نوار بین دو حلقه (احتمالاً ناهم‌تعداد)؛ CCW ⇒ نرمال +Z.</summary>
     public static void AnnulusZ(TriMesh mesh, IReadOnlyList<int> inner, IReadOnlyList<int> outer)
     {
         int n = Math.Min(inner.Count, outer.Count);
         if (inner.Count != outer.Count)
-            throw new InvalidOperationException("نوار بین حلقه‌های ناهم‌تعداد ساخته نمی‌شود.");
+        {
+            MergeWalkAnnulus(mesh, inner, outer, flip: false);
+            return;
+        }
         for (int i = 0; i < n; i++)
         {
             int j = (i + 1) % n;
@@ -238,12 +286,60 @@ internal sealed class VertexPool
     {
         int n = Math.Min(inner.Count, outer.Count);
         if (inner.Count != outer.Count)
-            throw new InvalidOperationException("نوار بین حلقه‌های ناهم‌تعداد ساخته نمی‌شود.");
+        {
+            MergeWalkAnnulus(mesh, inner, outer, flip: true);
+            return;
+        }
         for (int i = 0; i < n; i++)
         {
             int j = (i + 1) % n;
             mesh.AddTriangle(inner[i], outer[i], outer[j]);
             mesh.AddTriangle(inner[i], outer[j], inner[j]);
+        }
+    }
+
+    /// <summary>مثلث‌بندی نوار با قدم‌زدن ادغامی روی زاویه‌ها — همیشه آب‌بند، صرف‌نظر از تعداد رأس‌ها.</summary>
+    private static void MergeWalkAnnulus(TriMesh mesh, IReadOnlyList<int> inner, IReadOnlyList<int> outer, bool flip)
+    {
+        int ii = 0, oi = 0;
+        int total = inner.Count + outer.Count;
+        for (int step = 0; step < total && (ii < inner.Count || oi < outer.Count); step++)
+        {
+            double iNext = AngleOf(mesh, inner[(ii + 1) % inner.Count]);
+            double oNext = AngleOf(mesh, outer[(oi + 1) % outer.Count]);
+            bool advanceOuter;
+            if (ii >= inner.Count) advanceOuter = true;
+            else if (oi >= outer.Count) advanceOuter = false;
+            else advanceOuter = oNext <= iNext;
+
+            if (advanceOuter)
+            {
+                int o0 = outer[oi % outer.Count], o1 = outer[(oi + 1) % outer.Count];
+                int iv = inner[ii % inner.Count];
+                if (flip)
+                {
+                    mesh.AddTriangle(iv, o0, o1);
+                }
+                else
+                {
+                    mesh.AddTriangle(iv, o1, o0);
+                }
+                oi++;
+            }
+            else
+            {
+                int i0 = inner[ii % inner.Count], i1 = inner[(ii + 1) % inner.Count];
+                int ov = outer[oi % outer.Count];
+                if (flip)
+                {
+                    mesh.AddTriangle(i0, ov, i1);
+                }
+                else
+                {
+                    mesh.AddTriangle(i0, i1, ov);
+                }
+                ii++;
+            }
         }
     }
 }
