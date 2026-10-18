@@ -14,13 +14,20 @@ internal sealed class VertexPool
     private readonly List<double> _zs = new();
     private readonly List<List<int>> _profileIndices = new();
 
-    // حلقه‌های شعاعی: کلید = (slice, دایره) — دایره‌ها: بور، ریشهٔ گپ، توپی
+    // حلقه‌های شعاعی: کلید = (slice, دایره)
     private readonly Dictionary<(int Slice, string Ring), List<int>> _rings = new();
 
     // حلقه‌های خارج از مرکز: (slice, مرکز, شعاع)
     private readonly Dictionary<(int Slice, double Cx, double Cy, double R), List<int>> _holes = new();
 
     private readonly Dictionary<int, int> _centers = new();
+
+    // حلقهٔ پره (نمونه‌های شعاعی از مرز) برای هر برش
+    private readonly Dictionary<int, List<int>> _spokeLoops = new();
+
+    // حلقه/رأس در ارتفاع دلخواه (توپی و گپ)
+    private readonly Dictionary<(double Z, string Key), List<int>> _zRings = new();
+    private readonly Dictionary<double, int> _zCenters = new();
 
     public VertexPool(TriMesh mesh) => _mesh = mesh;
 
@@ -58,6 +65,40 @@ internal sealed class VertexPool
         return idx;
     }
 
+    /// <summary>ثبت حلقهٔ پره یک برش (نمونه‌های شعاعی مرز).</summary>
+    public void SetSpokeLoop(int slice, List<int> ids) => _spokeLoops[slice] = ids;
+
+    /// <summary>حلقهٔ پره برش.</summary>
+    public List<int> SpokeLoop(int slice) => _spokeLoops[slice];
+
+    /// <summary>حلقهٔ دایرهٔ هم‌مرکز در ارتفاع دلخواه (خارج از برش‌های اصلی — توپی/گپ).</summary>
+    public List<int> RingAtZ(double z, string key, double radius, double chordTol)
+    {
+        var k = (Math.Round(z, 6), key);
+        if (_zRings.TryGetValue(k, out var cached))
+            return cached;
+        int segments = CircleProfile.SegmentsForCircle(radius, chordTol);
+        var ids = new List<int>(segments);
+        for (int i = 0; i < segments; i++)
+        {
+            double a = 2.0 * Math.PI * i / segments;
+            ids.Add(_mesh.AddVertex(new Vector3(radius * Math.Cos(a), radius * Math.Sin(a), z)));
+        }
+        _zRings[k] = ids;
+        return ids;
+    }
+
+    /// <summary>رأس مرکز در ارتفاع دلخواه.</summary>
+    public int CenterAtZ(double z)
+    {
+        double key = Math.Round(z, 6);
+        if (_zCenters.TryGetValue(key, out var idx))
+            return idx;
+        idx = _mesh.AddVertex(new Vector3(0, 0, z));
+        _zCenters[key] = idx;
+        return idx;
+    }
+
     /// <summary>حلقهٔ دایرهٔ هم‌مرکز (بور/ریشه/توپی) — یکتا در هر برش؛ زاویه‌ها از 0 شروع و CCW.</summary>
     public List<int> Ring(int slice, string ringKey, double radius, double chordTol)
     {
@@ -90,23 +131,23 @@ internal sealed class VertexPool
         double aEdge = Math.Asin(Math.Min(0.999, halfW / radius)); // زاویهٔ لبهٔ خار روی دایره
         double depth = Math.Min(keywayDepth, radius * 0.5);
 
-        // کمان‌های بالا و پایین دایره + سه گوشهٔ مستطیل خار؛ حلقه CCW می‌ماند
+        // کمان پایین دایره + سه گوشهٔ مستطیل خار؛ حلقه CCW می‌ماند
         int arcBottom = Math.Max(8, CircleProfile.SegmentsForCircle(radius, chordTol) / 2);
-        var ids = new List<int>(arcBottom * 2 + 8);
+        var ids = new List<int>(arcBottom + 8);
         double t = _twists[slice];
         double z = _zs[slice];
         Vector3 V(double ang, double r) => new(r * Math.Cos(ang + t), r * Math.Sin(ang + t), z);
 
-        for (int i = 0; i <= arcBottom; i++) // کمان پایین از (π+aEdge) تا (2π−aEdge)
+        for (int i = 0; i <= arcBottom; i++) // کمان از (π+aEdge) تا (2π−aEdge)
         {
             double a = Math.PI + aEdge + (Math.PI - 2.0 * aEdge) * i / arcBottom;
             ids.Add(_mesh.AddVertex(V(a, radius)));
         }
-        ids.Add(_mesh.AddVertex(V(Math.PI - aEdge, radius)));        // لبهٔ چپ روی دایره
+        ids.Add(_mesh.AddVertex(V(Math.PI - aEdge, radius)));         // لبهٔ چپ روی دایره
         ids.Add(_mesh.AddVertex(V(Math.PI - aEdge, radius + depth))); // گوشهٔ بیرونی چپ خار
         ids.Add(_mesh.AddVertex(V(Math.PI, radius + depth)));         // وسط خار
         ids.Add(_mesh.AddVertex(V(Math.PI + aEdge, radius + depth))); // گوشهٔ بیرونی راست خار
-        ids.Add(_mesh.AddVertex(V(Math.PI + aEdge, radius)));        // لبهٔ راست روی دایره
+        ids.Add(_mesh.AddVertex(V(Math.PI + aEdge, radius)));         // لبهٔ راست روی دایره
 
         _rings[key] = ids;
         return ids;
@@ -156,7 +197,7 @@ internal sealed class VertexPool
         }
     }
 
-    /// <summary>حلقهٔ نقطه‌ای (همهٔ رأس‌ها یکسان) → دیسک تخت با نرمال +Z.</summary>
+    /// <summary>حلقه با مرکز → دیسک تخت با نرمال +Z.</summary>
     public static void DiskZ(TriMesh mesh, IReadOnlyList<int> ring, int centerIdx)
     {
         int n = ring.Count;
@@ -167,7 +208,7 @@ internal sealed class VertexPool
         }
     }
 
-    /// <summary>حلقهٔ نقطه‌ای → دیسک تخت با نرمال −Z.</summary>
+    /// <summary>حلقه با مرکز → دیسک تخت با نرمال −Z.</summary>
     public static void DiskNZ(TriMesh mesh, IReadOnlyList<int> ring, int centerIdx)
     {
         int n = ring.Count;
