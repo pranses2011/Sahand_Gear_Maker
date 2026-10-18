@@ -67,13 +67,14 @@ public static class MeshImporter
     private static TriMesh ImportStl(string path, List<string> notes)
     {
         var bytes = File.ReadAllBytes(path);
-        // تشخیص باینری/متنی: ascii با "solid" شروع می‌شود ولی فایل‌های باینری هم گاهی چنین دارند؛
-        // روش معتبر: تطابق طول باینری (84 + 50·n)
+        // تشخیص باینری/متنی (روش مرجع): فایل متنی با "solid" شروع می‌شود و در ابتدای آن
+        // کلیدواژهٔ "facet" دیده می‌شود؛ باینری‌های دارای "solid" در سرصفحه این را ندارند.
         bool isBinary = true;
         if (bytes.Length >= 5 && Encoding.ASCII.GetString(bytes, 0, 5) == "solid")
         {
-            long n = (bytes.Length - 84) / 50L;
-            isBinary = bytes.Length != 84 + 50 * n;
+            int headLen = Math.Min(bytes.Length, 512);
+            string head = Encoding.ASCII.GetString(bytes, 0, headLen);
+            isBinary = !head.Contains("facet", StringComparison.OrdinalIgnoreCase);
         }
 
         var mesh = new TriMesh();
