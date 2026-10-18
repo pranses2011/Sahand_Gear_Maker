@@ -31,6 +31,13 @@ public partial class ViewportControl : UserControl, IDisposable
     private readonly System.Diagnostics.Stopwatch _fpsClock = new();
     private double _fpsEma = 60;
 
+    // ----- برداشت باکیفیت (عکس بوم) -----
+    private volatile int _captureSs = 3;
+    private TaskCompletionSource<(byte[] Data, int W, int H)>? _captureTcs;
+
+    // ----- مقیاس DPI (بافر در پیکسل فیزیکی — رفع تاری روی نمایش‌های ۱۲۵٪/۱۵۰٪) -----
+    private double _dpi = 1.0;
+
     // ----- وضعیت مشترک (قفل‌محور) -----
     private readonly object _stateLock = new();
     private SceneObject[] _snapshot = Array.Empty<SceneObject>();
@@ -76,8 +83,15 @@ public partial class ViewportControl : UserControl, IDisposable
 
     private void SyncSize()
     {
-        _sizeW = Math.Max(8, (int)ActualWidth);
-        _sizeH = Math.Max(8, (int)ActualHeight);
+        // اندازهٔ بافر در پیکسل فیزیکی — روی نمایش‌های با مقیاس DPI>1 بوم شارپ می‌ماند (رفع تاری)
+        try
+        {
+            var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(this);
+            _dpi = Math.Max(1.0, dpi.PixelsPerDip);
+        }
+        catch { _dpi = 1.0; }
+        _sizeW = Math.Max(8, (int)Math.Round(ActualWidth * _dpi));
+        _sizeH = Math.Max(8, (int)Math.Round(ActualHeight * _dpi));
     }
 
     // ---------- API عمومی ----------
@@ -392,6 +406,29 @@ public partial class ViewportControl : UserControl, IDisposable
                     var statsCopy = stats;
                     Dispatcher.BeginInvoke(() => Blit(statsCopy));
                 }
+
+                // ---- برداشت باکیفیت: رندر اختصاصی با SSAA بالا برای «عکس بوم» ----
+                var tcs = _captureTcs;
+                if (tcs is not null)
+                {
+                    _captureTcs = null;
+                    try
+                    {
+                        renderer.Resize(w, h, _captureSs);
+                        var cstats = renderer.Render(objects, frame, opt, _fpsEma);
+                        var buf = new byte[cstats.Width * cstats.Height * 4];
+                        renderer.Output.CopyTo(buf);
+                        tcs.TrySetResult((buf, cstats.Width, cstats.Height));
+                    }
+                    catch (Exception ex)
+                    {
+                        tcs.TrySetException(ex);
+                    }
+                    finally
+                    {
+                        renderer.Resize(w, h, _ss); // بازگشت به رندر تعاملی
+                    }
+                }
             }
 
             if (!animating && !_dirty)
@@ -492,11 +529,11 @@ public partial class ViewportControl : UserControl, IDisposable
             objects = _snapshot;
         }
         if (!_frameValid) return;
-        var hit = ScenePicking.PickPoint(objects, frame, pos.X, pos.Y);
+        var hit = ScenePicking.PickPoint(objects, frame, pos.X * _dpi, pos.Y * _dpi);
         if (hit is null)
         {
             // صفحهٔ هدف به‌عنوان جایگزین
-            if (ScenePicking.PlaneAnchorUnderCursor(frame, pos.X, pos.Y) is { } anchor)
+            if (ScenePicking.PlaneAnchorUnderCursor(frame, pos.X * _dpi, pos.Y * _dpi) is { } anchor)
                 AddMeasurePoint(anchor);
             return;
         }
@@ -551,7 +588,7 @@ public partial class ViewportControl : UserControl, IDisposable
         var pos = e.GetPosition(InteractionLayer);
         int w = Math.Max(8, (int)ActualWidth), h = Math.Max(8, (int)ActualHeight);
         double factor = e.Delta > 0 ? 0.88 : 1.14;
-        double px = pos.X, py = pos.Y;
+        double px = pos.X * _dpi, py = pos.Y * _dpi;
 
         // لنگر: نقطهٔ جهان زیر مکان‌نما روی صفحهٔ هدف — برای تجربهٔ زوم حرفه‌ای (۱٫۱۴)
         CameraFrame frame;
@@ -588,7 +625,7 @@ public partial class ViewportControl : UserControl, IDisposable
         }
         if (!_frameValid) return;
 
-        var hit = ScenePicking.Pick(objects, frame, pos.X, pos.Y);
+        var hit = ScenePicking.Pick(objects, frame, pos.X * _dpi, pos.Y * _dpi);
         _pickTargetId = hit?.ObjectId;
         if (!silent)
             PickRequested?.Invoke(this, hit?.ObjectId);
@@ -675,24 +712,61 @@ public partial class ViewportControl : UserControl, IDisposable
 
     private void BtnFrame_Click(object sender, RoutedEventArgs e) => FrameAll();
 
-    private void BtnScreenshot_Click(object sender, RoutedEventArgs e)
+    private async void BtnScreenshot_Click(object sender, RoutedEventArgs e)
     {
-        byte[]? data = null;
-        int w = 0, h = 0;
-        lock (_stateLock)
+        // برداشت اختصاصی با SSAA بالا (تا ۴× بر پیکسل فیزیکی) — نه کپی فریم تعاملی؛
+        // خروجی شارپ و با وضوح کامل حتی وسط تعامل کاربر (رفع تاری عکس بوم).
+        (byte[] Data, int W, int H)? capture = null;
+        try
         {
-            if (_transport.Length > 0)
+            int w = _sizeW, h = _sizeH;
+            int ss = 2;
+            while (ss < 4 && (long)w * h * (ss + 1) * (ss + 1) <= 36_000_000)
+                ss++;
+            _captureSs = ss;
+            var tcs = new TaskCompletionSource<(byte[], int, int)>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _captureTcs = tcs;
+            _dirty = true;
+            _wake.Set();
+            var done = await Task.WhenAny(tcs.Task, Task.Delay(4000)).ConfigureAwait(true);
+            if (done == tcs.Task)
             {
-                data = (byte[])_transport.Clone();
-                w = _transportW;
-                h = _transportH;
+                var (cdata, cw, ch) = await tcs.Task.ConfigureAwait(true);
+                capture = (cdata, cw, ch);
             }
         }
-        if (data is null)
+        catch
         {
-            MessageBox.Show(Window.GetWindow(this), "هنوز فریمی رندر نشده است.", "عکس بوم",
-                MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
+            capture = null;
+        }
+
+        // جایگزین: آخرین فریم رندرشده (اگر برداشت اختصاصی ممکن نشد)
+        byte[] data;
+        int w2, h2;
+        if (capture is { } cap)
+        {
+            data = cap.Data; w2 = cap.W; h2 = cap.H;
+        }
+        else
+        {
+            byte[]? fallback = null;
+            int fw = 0, fh = 0;
+            lock (_stateLock)
+            {
+                if (_transport.Length > 0)
+                {
+                    fallback = (byte[])_transport.Clone();
+                    fw = _transportW;
+                    fh = _transportH;
+                }
+            }
+            if (fallback is null)
+            {
+                MessageBox.Show(Window.GetWindow(this), "هنوز فریمی رندر نشده است.", "عکس بوم",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            data = fallback; w2 = fw; h2 = fh;
         }
 
         var dlg = new Microsoft.Win32.SaveFileDialog
@@ -704,13 +778,13 @@ public partial class ViewportControl : UserControl, IDisposable
         if (dlg.ShowDialog() != true) return;
         try
         {
-            var bmp = new WriteableBitmap(w, h, 96, 96, PixelFormats.Bgra32, null);
-            bmp.WritePixels(new Int32Rect(0, 0, w, h), data, w * 4, 0);
+            var bmp = new WriteableBitmap(w2, h2, 96, 96, PixelFormats.Bgra32, null);
+            bmp.WritePixels(new Int32Rect(0, 0, w2, h2), data, w2 * 4, 0);
             var encoder = new PngBitmapEncoder();
             encoder.Frames.Add(BitmapFrame.Create(bmp));
             using var fs = File.Create(dlg.FileName);
             encoder.Save(fs);
-            MessageBox.Show(Window.GetWindow(this), $"ذخیره شد: {dlg.FileName}", "عکس بوم",
+            MessageBox.Show(Window.GetWindow(this), $"ذخیره شد: {dlg.FileName} ({w2}×{h2}px)", "عکس بوم",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
@@ -732,12 +806,12 @@ public partial class ViewportControl : UserControl, IDisposable
     }
 
     private void Cube_Iso(object sender, RoutedEventArgs e) => SetNamedView(Math.PI / 6, Math.PI / 5);
-    private void Cube_Front(object sender, RoutedEventArgs e) => SetNamedView(0, 0.0001);
-    private void Cube_Back(object sender, RoutedEventArgs e) => SetNamedView(Math.PI, 0.0001);
-    private void Cube_Top(object sender, RoutedEventArgs e) => SetNamedView(0, 1.45);
-    private void Cube_Bottom(object sender, RoutedEventArgs e) => SetNamedView(0, -1.45);
-    private void Cube_Right(object sender, RoutedEventArgs e) => SetNamedView(-Math.PI / 2, 0.0001);
-    private void Cube_Left(object sender, RoutedEventArgs e) => SetNamedView(Math.PI / 2, 0.0001);
+    private void Cube_Front(object sender, RoutedEventArgs e) => SetNamedView(0, 0);
+    private void Cube_Back(object sender, RoutedEventArgs e) => SetNamedView(Math.PI, 0);
+    private void Cube_Top(object sender, RoutedEventArgs e) => SetNamedView(0, Math.PI / 2);
+    private void Cube_Bottom(object sender, RoutedEventArgs e) => SetNamedView(0, -Math.PI / 2);
+    private void Cube_Right(object sender, RoutedEventArgs e) => SetNamedView(-Math.PI / 2, 0);
+    private void Cube_Left(object sender, RoutedEventArgs e) => SetNamedView(Math.PI / 2, 0);
 
     // ---------- منوی زمینه‌ای (۱٫۲۰) — رویدادها به میزبان ----------
 

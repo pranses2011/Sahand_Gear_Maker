@@ -36,12 +36,18 @@ public sealed class TriMesh
         _triangles.Add(new Triangle(a, b, c));
     }
 
-    public void AddMesh(TriMesh other, Vector3 offset = default, double rotateZ = 0.0)
+    public void AddMesh(TriMesh other, Vector3 offset = default, double rotateZ = 0.0, double scale = 1.0)
     {
         ArgumentNullException.ThrowIfNull(other);
+        if (scale <= 0 || !double.IsFinite(scale))
+            scale = 1.0;
         int baseIndex = _vertices.Count;
+        bool uniform = scale == 1.0;
         foreach (var v in other._vertices)
-            _vertices.Add(rotateZ == 0 ? v + offset : v.RotateZ(rotateZ) + offset);
+        {
+            var u = uniform ? v : v * scale;
+            _vertices.Add(rotateZ == 0 ? u + offset : u.RotateZ(rotateZ) + offset);
+        }
         foreach (var t in other._triangles)
             _triangles.Add(new Triangle(baseIndex + t.A, baseIndex + t.B, baseIndex + t.C));
     }

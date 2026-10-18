@@ -38,7 +38,7 @@ public sealed class SceneRenderer : IDisposable
 
     public void Resize(int width, int height, int supersample)
     {
-        int ss = Math.Clamp(supersample, 1, 2);
+        int ss = Math.Clamp(supersample, 1, 4);
         width = Math.Max(8, width);
         height = Math.Max(8, height);
         if (width == _w && height == _h && ss == _ss) return;
@@ -104,13 +104,15 @@ public sealed class SceneRenderer : IDisposable
                     FillBand(b, y0, y1, writeZ: true);
             });
 
+            // «سایه + لبه» فقط لبه‌های ویژه را می‌کشد (شکست‌های واقعی سطح)، نه همهٔ یال‌های
+            // مثلث‌بندی — سطح منحنی یکپارچه دیده می‌شود (رفع نمای مش‌طور مثلثی).
             if (opt.Mode == DisplayMode.ShadedWithEdges)
             {
                 Parallel.For(0, bandCount, band =>
                 {
                     int y0 = band * bandHeight, y1 = Math.Min(_ph, y0 + bandHeight);
                     foreach (var b in opaque)
-                        EdgesBand(b, y0, y1, zTest: true, EdgeColorOf(b, opt));
+                        FeatureEdgesBand(b, y0, y1, EdgeColorOf(b, opt));
                 });
             }
 
@@ -121,7 +123,7 @@ public sealed class SceneRenderer : IDisposable
                     int y0 = band * bandHeight, y1 = Math.Min(_ph, y0 + bandHeight);
                     FillBand(b, y0, y1, writeZ: false);
                     if (opt.Mode == DisplayMode.ShadedWithEdges && b.Alpha > 0.55)
-                        EdgesBand(b, y0, y1, zTest: true, EdgeColorOf(b, opt));
+                        FeatureEdgesBand(b, y0, y1, EdgeColorOf(b, opt));
                 });
             }
         }
@@ -141,17 +143,28 @@ public sealed class SceneRenderer : IDisposable
         }
 
         var bounds = CombinedBounds(objects);
+
+        // فریم دوربینِ مقیاس‌شده به بافر SS — روکش‌ها (گرید/محور/برچسب) باید در همان فضای پیکسلیِ
+        // هندسه رسم شوند؛ در غیر این صورت با روشن‌شدن SSAA ناگهان جابه‌جا/نصف‌مقیاس می‌شدند (رفع پرش گرید).
+        var camSS = cam with
+        {
+            Focal = cam.Focal * _ss,
+            OrthoScale = cam.OrthoScale * _ss,
+            HalfW = _pw / 2.0,
+            HalfH = _ph / 2.0,
+        };
+
         if (opt.ShowGrid || opt.ShowAxes)
-            SceneOverlay.DrawWorldOverlay(_pixels, _zbuf, _pw, _ph, cam, bounds, opt);
-        SceneOverlay.DrawScaleBar(_pixels, _pw, _ph, cam, bounds);
+            SceneOverlay.DrawWorldOverlay(_pixels, _zbuf, _pw, _ph, camSS, bounds, opt);
+        SceneOverlay.DrawScaleBar(_pixels, _pw, _ph, camSS, bounds);
 
         // پاره‌خط‌های اندازه‌گیری (فاز ۴٫۱) — همیشه روی همه‌چیز
         if (opt.MeasureLines is { Count: > 0 } lines)
         {
             foreach (var (a, b) in lines)
             {
-                SceneOverlay.DrawWorldLine(_pixels, _zbuf, _pw, _ph, cam, a, b, new Rgb(245, 158, 11), 2);
-                SceneOverlay.DrawWorldLine(_pixels, _zbuf, _pw, _ph, cam, a, b, new Rgb(120, 70, 0), 1);
+                SceneOverlay.DrawWorldLine(_pixels, _zbuf, _pw, _ph, camSS, a, b, new Rgb(245, 158, 11), 2);
+                SceneOverlay.DrawWorldLine(_pixels, _zbuf, _pw, _ph, camSS, a, b, new Rgb(120, 70, 0), 1);
             }
         }
         if (opt.MeasureLabels is { Count: > 0 } labels)
@@ -159,13 +172,13 @@ public sealed class SceneRenderer : IDisposable
             foreach (var (at, label) in labels)
             {
                 // نقطهٔ صفحه‌ای متن — پروژهٔ نقطهٔ جهان
-                var rel = at - cam.Eye;
-                double cz = Vector3.Dot(rel, cam.Forward);
+                var rel = at - camSS.Eye;
+                double cz = Vector3.Dot(rel, camSS.Forward);
                 if (cz <= 1) continue;
-                double cx = Vector3.Dot(rel, cam.Right), cy = Vector3.Dot(rel, cam.Up);
-                double inv = cam.Projection == ProjectionKind.Perspective ? 1.0 / cz : 1.0;
-                double sx = (cam.Projection == ProjectionKind.Perspective ? cam.HalfW + cx * cam.Focal * inv : cam.HalfW + cx * cam.OrthoScale);
-                double sy = (cam.Projection == ProjectionKind.Perspective ? cam.HalfH - cy * cam.Focal * inv : cam.HalfH - cy * cam.OrthoScale);
+                double cx = Vector3.Dot(rel, camSS.Right), cy = Vector3.Dot(rel, camSS.Up);
+                double inv = camSS.Projection == ProjectionKind.Perspective ? 1.0 / cz : 1.0;
+                double sx = (camSS.Projection == ProjectionKind.Perspective ? camSS.HalfW + cx * camSS.Focal * inv : camSS.HalfW + cx * camSS.OrthoScale);
+                double sy = (camSS.Projection == ProjectionKind.Perspective ? camSS.HalfH - cy * camSS.Focal * inv : camSS.HalfH - cy * camSS.OrthoScale);
                 SceneOverlay.DrawTinyTextAt(_pixels, _pw, _ph, (int)sx, (int)sy, label, new Rgb(120, 60, 0));
             }
         }
@@ -195,6 +208,16 @@ public sealed class SceneRenderer : IDisposable
 
     private static Rgb EdgeColorOf(RenderBatch b, RenderOptions opt)
         => b.IsHighlight ? opt.HighlightColor : new Rgb(36, 48, 72);
+
+    /// <summary>ترکیب رنگ قطعه با سهمی از رنگ انتخاب — کیو انتخاب بدون پوشاندن رنگ کاربر.</summary>
+    private static Rgb BlendTint(Rgb baseColor, Rgb tint, double tintShare)
+    {
+        double k = Math.Clamp(tintShare, 0, 1), ik = 1 - k;
+        return new Rgb(
+            (byte)Math.Clamp(baseColor.R * ik + tint.R * k, 0, 255),
+            (byte)Math.Clamp(baseColor.G * ik + tint.G * k, 0, 255),
+            (byte)Math.Clamp(baseColor.B * ik + tint.B * k, 0, 255));
+    }
 
     public static (Vector3 Min, Vector3 Max) CombinedBounds(IReadOnlyList<SceneObject> objects)
     {
@@ -255,7 +278,8 @@ public sealed class SceneRenderer : IDisposable
         var normals = obj.EnsureVertexNormals();
         var verts = obj.Mesh.Vertices;
         int vc = obj.Mesh.VertexCount;
-        var baseColor = highlight ? opt.HighlightColor.Scaled(1.15) : obj.Color;
+        // انتخاب = تینت ۳۰٪ (نه جایگزینی کامل رنگ) — رنگ خود قطعه دیده بماند (رفع «تغییر رنگ اعمال نمی‌شود»)
+        var baseColor = highlight ? BlendTint(obj.Color, opt.HighlightColor, 0.30) : obj.Color;
         double cr = baseColor.R, cg = baseColor.G, cb = baseColor.B;
 
         var eye = cam.Eye;
@@ -431,6 +455,53 @@ public sealed class SceneRenderer : IDisposable
         }
     }
 
+    /// <summary>
+    /// رسم لبه‌های ویژهٔ یک شیئ — یال‌هایی که زاویهٔ دیهدرال وجوه مجاور از آستانه فراتر می‌برد
+    /// یا مرز باز مش‌اند؛ از مختصات دوربینِ ازپیش‌محو‌شدهٔ رأس‌ها (CX/CY/CZ) تصویر می‌شوند.
+    /// </summary>
+    private void FeatureEdgesBand(RenderBatch b, int y0, int y1, Rgb color)
+    {
+        var p = b.Prep;
+        var edges = p.FeatureEdges;
+        if (edges is not { Length: > 0 }) return;
+        var cx = p.CX; var cy = p.CY; var cz = p.CZ;
+        double focal = p.Focal, ortho = p.Ortho, hw = p.HalfW, hh = p.HalfH;
+        bool persp = p.Perspective;
+
+        for (int e = 0; e + 1 < edges.Length; e += 2)
+        {
+            int a = edges[e], c = edges[e + 1];
+            double az = cz[a], bz = cz[c];
+            if (az < NearPlane && bz < NearPlane) continue;
+
+            double ax = cx[a], ay = cy[a], bx = cx[c], by = cy[c];
+            if (az < NearPlane)
+            {
+                double t = (NearPlane - az) / (bz - az);
+                ax += (bx - ax) * t; ay += (by - ay) * t; az = NearPlane;
+            }
+            else if (bz < NearPlane)
+            {
+                double t = (NearPlane - bz) / (az - bz);
+                bx += (ax - bx) * t; by += (ay - by) * t; bz = NearPlane;
+            }
+
+            double sx0, sy0, dk0, sx1, sy1, dk1;
+            if (persp)
+            {
+                double i0 = 1.0 / az, i1 = 1.0 / bz;
+                sx0 = hw + ax * focal * i0; sy0 = hh - ay * focal * i0; dk0 = i0;
+                sx1 = hw + bx * focal * i1; sy1 = hh - by * focal * i1; dk1 = i1;
+            }
+            else
+            {
+                sx0 = hw + ax * ortho; sy0 = hh - ay * ortho; dk0 = -az;
+                sx1 = hw + bx * ortho; sy1 = hh - by * ortho; dk1 = -bz;
+            }
+            DrawLine(sx0, sy0, dk0, sx1, sy1, dk1, y0, y1, zTest: true, color);
+        }
+    }
+
     private void DrawLine(double ax, double ay, double ad, double bx, double by, double bd,
         int bandY0, int bandY1, bool zTest, Rgb color)
     {
@@ -493,20 +564,28 @@ public sealed class SceneRenderer : IDisposable
             Buffer.BlockCopy(_pixels, 0, _output, 0, _pixels.Length);
             return;
         }
-        int w = _w, h = _h, pw = _pw;
+        int w = _w, h = _h, ss = _ss, pw = _pw;
         var src = _pixels; var dst = _output;
+        int ss2 = ss * ss;
         Parallel.For(0, h, y =>
         {
-            int sy = y * 2;
-            int row = sy * pw * 4, row2 = (sy + 1) * pw * 4;
             int oRow = y * w * 4;
             for (int x = 0; x < w; x++)
             {
-                int sx = x * 2, o = oRow + x * 4;
-                int i00 = row + sx * 4, i01 = i00 + 4, i10 = row2 + sx * 4, i11 = i10 + 4;
-                dst[o] = (byte)((src[i00] + src[i01] + src[i10] + src[i11] + 2) >> 2);
-                dst[o + 1] = (byte)((src[i00 + 1] + src[i01 + 1] + src[i10 + 1] + src[i11 + 1] + 2) >> 2);
-                dst[o + 2] = (byte)((src[i00 + 2] + src[i01 + 2] + src[i10 + 2] + src[i11 + 2] + 2) >> 2);
+                int o = oRow + x * 4;
+                int b = 0, g = 0, r = 0;
+                for (int dy = 0; dy < ss; dy++)
+                {
+                    int row = (y * ss + dy) * pw * 4;
+                    for (int dx = 0; dx < ss; dx++)
+                    {
+                        int i = row + (x * ss + dx) * 4;
+                        b += src[i]; g += src[i + 1]; r += src[i + 2];
+                    }
+                }
+                dst[o] = (byte)((b + ss2 / 2) / ss2);
+                dst[o + 1] = (byte)((g + ss2 / 2) / ss2);
+                dst[o + 2] = (byte)((r + ss2 / 2) / ss2);
                 dst[o + 3] = 255;
             }
         });
@@ -536,6 +615,9 @@ public sealed class SceneRenderer : IDisposable
         public double[] PolyR = new double[1], PolyG = new double[1], PolyB = new double[1];
         public int[] PolyStart = new int[1];
         public byte[] PolyN = new byte[1];
+
+        /// <summary>لبه‌های ویژه به‌صورت جفت‌اندیس رأس — یک‌بار per مش محاسبه و کش می‌شود.</summary>
+        public int[] FeatureEdges = BuildFeatureEdges(mesh);
 
         public double Alpha = 1.0;
         public bool IsHighlight;
@@ -640,6 +722,90 @@ public sealed class SceneRenderer : IDisposable
                 }
             }
             return m;
+        }
+
+        // ---------- لبه‌های ویژه ----------
+
+        /// <summary>آستانهٔ زاویهٔ دیهدرال برای «لبهٔ ویژه» — کمتر از این، سطح صاف در نظر گرفته می‌شود.</summary>
+        private const double FeatureCosThreshold = 0.9063; // ≈ 25°
+
+        /// <summary>
+        /// استخراج لبه‌های ویژهٔ مش: یال‌های دارای وجوه مجاور با نرمال واگرا (شکست واقعی سطح)
+        /// و یال‌های مرزی باز. یک‌بار برای هر مش محاسبه می‌شود و بین فریم‌ها کش می‌ماند.
+        /// جدول درگذشتی خطی — سریع‌تر از مرتب‌سازی/دیکشنری برای مش‌های سنگین.
+        /// </summary>
+        private static int[] BuildFeatureEdges(TriMesh mesh)
+        {
+            try
+            {
+                var verts = mesh.Vertices;
+                var tris = mesh.Triangles;
+                int tc = tris.Length;
+                if (tc == 0)
+                    return Array.Empty<int>();
+
+                var normals = new Vector3[tc];
+                int cap = 1;
+                while (cap < tc * 6)
+                    cap <<= 1;
+                int mask = cap - 1;
+                var slotKey = new long[cap];
+                var slotA = new int[cap];
+                var slotB = new int[cap];
+                Array.Fill(slotA, -1);
+                Array.Fill(slotB, -1);
+
+                void Put(int u, int v, int face)
+                {
+                    long key = u < v ? (long)u * 400_000_009L + v : (long)v * 400_000_009L + u;
+                    int h = (int)(key ^ (key >> 29)) & mask;
+                    while (true)
+                    {
+                        if (slotA[h] < 0)
+                        {
+                            slotKey[h] = key;
+                            slotA[h] = face;
+                            return;
+                        }
+                        if (slotKey[h] == key)
+                        {
+                            if (slotB[h] == -1) slotB[h] = face;
+                            else slotB[h] = -2; // یال غیرمنیفولد — از لبه‌های ویژه حذف می‌شود
+                            return;
+                        }
+                        h = (h + 1) & mask;
+                    }
+                }
+
+                for (int ti = 0; ti < tc; ti++)
+                {
+                    var t = tris[ti];
+                    normals[ti] = t.Normal(verts);
+                    Put(t.A, t.B, ti);
+                    Put(t.B, t.C, ti);
+                    Put(t.C, t.A, ti);
+                }
+
+                var result = new List<int>(cap / 24 + 16);
+                for (int h = 0; h < cap; h++)
+                {
+                    if (slotA[h] < 0)
+                        continue;
+                    bool feature = slotB[h] == -1 // مرز باز
+                        || (slotB[h] >= 0 && Vector3.Dot(normals[slotA[h]], normals[slotB[h]]) < FeatureCosThreshold);
+                    if (feature)
+                    {
+                        long key = slotKey[h];
+                        result.Add((int)(key / 400_000_009L));
+                        result.Add((int)(key % 400_000_009L));
+                    }
+                }
+                return result.ToArray();
+            }
+            catch
+            {
+                return Array.Empty<int>();
+            }
         }
     }
 

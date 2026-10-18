@@ -121,7 +121,7 @@ public sealed class SceneCamera
         _velAz = dxPixels * RotateSpeed * InvertHorizontal * k;
         _velEl = -dyPixels * RotateSpeed * k;
         Azimuth += dxPixels * RotateSpeed * InvertHorizontal;
-        Elevation = Math.Clamp(Elevation - dyPixels * RotateSpeed, -1.5, 1.5);
+        Elevation = Math.Clamp(Elevation - dyPixels * RotateSpeed, -MaxElevation, MaxElevation);
         _inertiaActive = false; // در حین درگ، اینرسی خاموش
         IsAnimating = true;
     }
@@ -138,6 +138,9 @@ public sealed class SceneCamera
         _curTarget = Target; // پن باید بی‌تأخیر باشد
         IsAnimating = true;
     }
+
+    /// <summary>حداکثر زاویهٔ ارتفاع: دقیقاً قطب (±۹۰°) — نمای بالا/پایین کاملاً قائم (رفع انحراف زاویه‌ای).</summary>
+    public const double MaxElevation = Math.PI / 2;
 
     /// <summary>زوم — نقطهٔ جهانِ زیر مکان‌نما ثابت می‌ماند (فاز ۱٫۱۴).</summary>
     public void ZoomAt(double factor, double px, double py, int width, int height, in CameraFrame frame, Vector3? anchorWorld)
@@ -179,7 +182,7 @@ public sealed class SceneCamera
     public void SetView(double azimuth, double elevation, double distance, Vector3 target, bool animate)
     {
         Azimuth = azimuth;
-        Elevation = Math.Clamp(elevation, -1.5, 1.5);
+        Elevation = Math.Clamp(elevation, -MaxElevation, MaxElevation);
         Distance = Math.Clamp(distance, 2.0, 20000.0);
         Target = target;
         _velAz = _velEl = 0;
@@ -213,7 +216,7 @@ public sealed class SceneCamera
         if (_inertiaActive && (Math.Abs(_velAz) > 0.02 || Math.Abs(_velEl) > 0.02))
         {
             Azimuth += _velAz * dt;
-            Elevation = Math.Clamp(Elevation + _velEl * dt, -1.5, 1.5);
+            Elevation = Math.Clamp(Elevation + _velEl * dt, -MaxElevation, MaxElevation);
             double damp = Math.Exp(-InertiaDamping * dt);
             _velAz *= damp;
             _velEl *= damp;
@@ -277,9 +280,11 @@ public sealed class SceneCamera
         double ce = Math.Cos(el), se = Math.Sin(el);
         var forward = new Vector3(-ce * Math.Cos(az), -ce * Math.Sin(az), -se).Normalized();
         var eye = target - forward * dist;
-        var worldUp = Vector3.UnitZ;
-        var right = Vector3.Cross(worldUp, forward).Normalized();
-        var up = Vector3.Cross(forward, right).Normalized();
-        return (eye, forward, right, up);
+        // راست تحلیلی (مستقل از ارتفاع) — در قطب‌ها (نمای بالا/پایین دقیق) بی‌تقابل می‌ماند؛
+        // فرمول متقاطعِ worldUp×forward در el=±90° صفر و NaN می‌شد؛ به‌همین دلیل پیش‌تر نما ۷° کج می‌ماند.
+        var right = new Vector3(Math.Sin(az), -Math.Cos(az), 0);
+        var rr = right.LengthSquared > 1e-12 ? right.Normalized() : new Vector3(1, 0, 0);
+        var up = Vector3.Cross(forward, rr).Normalized();
+        return (eye, forward, rr, up);
     }
 }

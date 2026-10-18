@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using Microsoft.Win32;
@@ -23,9 +24,15 @@ public partial class DrawingView : UserControl
     private DesignerViewModel VM => _main!.Designer;
     private TechnicalDrawingDocument? _doc;
 
+    // ----- زوم پیش‌نمایش (ورق در Canvas با LayoutTransform مقیاس می‌شود) -----
+    private double _zoom = 1.0;
+    private readonly System.Windows.Media.ScaleTransform _sheetZoom = new();
+
     public DrawingView()
     {
         InitializeComponent();
+        SheetCanvas.LayoutTransform = _sheetZoom;
+        ApplyZoom();
     }
 
     public void Bind(MainWindow main)
@@ -112,6 +119,46 @@ public partial class DrawingView : UserControl
 
     private sealed record Kv(string Key, string Value);
 
+    // ---------- زوم ورق (رفع «نقشهٔ فنی زوم ندارد») ----------
+
+    private const double ZoomMin = 0.2, ZoomMax = 8.0;
+
+    private void ApplyZoom()
+    {
+        _sheetZoom.ScaleX = _zoom;
+        _sheetZoom.ScaleY = _zoom;
+        if (ZoomLabel is not null)
+            ZoomLabel.Text = $"{_zoom * 100:0}%";
+    }
+
+    private void SetZoom(double value)
+    {
+        _zoom = Math.Clamp(value, ZoomMin, ZoomMax);
+        ApplyZoom();
+    }
+
+    private void ZoomIn_Click(object sender, RoutedEventArgs e) => SetZoom(_zoom * 1.25);
+
+    private void ZoomOut_Click(object sender, RoutedEventArgs e) => SetZoom(_zoom / 1.25);
+
+    private void Zoom100_Click(object sender, RoutedEventArgs e) => SetZoom(1.0);
+
+    private void ZoomFit_Click(object sender, RoutedEventArgs e)
+    {
+        double sw = Math.Max(50, SheetScroll.ViewportWidth - 30);
+        double sh = Math.Max(50, SheetScroll.ViewportHeight - 30);
+        double cw = Math.Max(1, SheetCanvas.Width + 24);
+        double ch = Math.Max(1, SheetCanvas.Height + 24);
+        SetZoom(Math.Min(sw / cw, sh / ch));
+    }
+
+    /// <summary>چرخ ماوس روی ورق = زوم (مستقیم و بدون نیاز به Ctrl).</summary>
+    private void SheetHost_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        SetZoom(_zoom * (e.Delta > 0 ? 1.12 : 1 / 1.12));
+        e.Handled = true;
+    }
+
     /// <summary>رسم ورق A4 روی Canvas — مرزها، خطوط، متن و جدول.</summary>
     private void DrawSheet(TechnicalDrawingDocument doc)
     {
@@ -135,7 +182,8 @@ public partial class DrawingView : UserControl
 
         double y = 24 * pxPerMm;
 
-        // نماها
+        // نماها — نمای اول سهم ارتفاع بیشتر، نماهای بعدی فشرده‌تر (ورق A4 با چند نما سرریز نکند)
+        int viewIndex = 0;
         foreach (var view in doc.Views)
         {
             var b = view.Bounds;
@@ -143,7 +191,8 @@ public partial class DrawingView : UserControl
             AddText(canvas, 8 * pxPerMm, y, view.Title, 3.0, true, Color.FromRgb(0x22, 0x33, 0x44));
             y += 5 * pxPerMm;
 
-            double scale = Math.Min((doc.SheetWidthMm - 20) / vw, 90.0 / vh) * pxPerMm;
+            double maxH = viewIndex++ == 0 ? 86.0 : 48.0;
+            double scale = Math.Min((doc.SheetWidthMm - 20) / vw, maxH / vh) * pxPerMm;
             double ox = 8 * pxPerMm, oy = y;
 
             foreach (var outline in view.Outlines)

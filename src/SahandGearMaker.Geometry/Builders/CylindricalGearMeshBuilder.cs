@@ -55,7 +55,8 @@ public static class CylindricalGearMeshBuilder
         bool internalGear = family is GearFamily.InternalSpur or GearFamily.InternalHelical;
 
         // داخلی هم پروفیل دندانه‌دار می‌گیرد: مرز «فضای خالی پینیون» = مرز داخلی مادهٔ رینگ
-        double tipChamfer = internalGear ? 0.0 : body.TipChamferMm;
+        // پخ نوک برای هر دو نوع مجاز است (برای داخلی، گوشه‌های رو به داخل را می‌برد)
+        double tipChamfer = body.TipChamferMm;
         IProfileGenerator profileGen = cycloidal
             ? new CycloidalToothProfile(fig, fig.RootFilletRadius)
             : new InvoluteToothProfile(fig, fig.RootFilletRadius, tipChamfer);

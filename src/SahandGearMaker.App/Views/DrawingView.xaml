@@ -9,19 +9,44 @@
         </Grid.ColumnDefinitions>
 
         <!-- پیش‌نمایش نقشهٔ فنی -->
-        <Border Grid.Column="0" Margin="6" Background="White" CornerRadius="8" ClipToBounds="True"
-                BorderBrush="{StaticResource BrushBorder}" BorderThickness="1">
-            <Grid>
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+        <Grid Grid.Column="0" Margin="6">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- نوار ابزار زوم -->
+            <Border Grid.Row="0" Background="White" CornerRadius="8,8,0,0" Padding="10,6"
+                    BorderBrush="{StaticResource BrushBorder}" BorderThickness="1,1,1,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button x:Name="BtnZoomOut" Content="−" Width="32" Padding="0,2" Click="ZoomOut_Click" ToolTip="کوچک‌نمایی" />
+                    <TextBlock x:Name="ZoomLabel" Text="100%" VerticalAlignment="Center" Margin="10,0"
+                               MinWidth="52" TextAlignment="Center" FontWeight="Bold" Foreground="#334" />
+                    <Button x:Name="BtnZoomIn" Content="+" Width="32" Padding="0,2" Click="ZoomIn_Click" ToolTip="بزرگ‌نمایی" />
+                    <Button Content="اندازهٔ صفحه" Margin="12,0,0,0" Padding="12,2" Click="ZoomFit_Click"
+                            Style="{StaticResource SecondaryButton}" ToolTip="جا دادن ورق در پنجره" />
+                    <Button Content="۱:۱" Margin="6,0,0,0" Padding="12,2" Click="Zoom100_Click"
+                            Style="{StaticResource SecondaryButton}" ToolTip="بازگشت به ۱۰۰٪" />
+                    <TextBlock Text="چرخ ماوس روی ورق = زوم" VerticalAlignment="Center" Margin="14,0,0,0"
+                               Style="{StaticResource MutedText}" FontSize="11" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="1" Background="White" CornerRadius="0,0,8,8" ClipToBounds="True"
+                    BorderBrush="{StaticResource BrushBorder}" BorderThickness="1"
+                    PreviewMouseWheel="SheetHost_PreviewMouseWheel">
+                <ScrollViewer x:Name="SheetScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                     <Canvas x:Name="SheetCanvas" Width="1120" Height="780" Background="White" Margin="12" />
                 </ScrollViewer>
-                <Border x:Name="EmptyHint" VerticalAlignment="Center" HorizontalAlignment="Center"
-                        Background="#F2FFFFFF" CornerRadius="10" Padding="28" BorderBrush="#33888888" BorderThickness="1">
-                    <TextBlock Text="قطعه‌ای برای نقشهٔ فنی انتخاب نشده — در تب طراح یک قطعهٔ معتبر بسازید."
-                               FontSize="14" Foreground="#556" TextWrapping="Wrap" />
-                </Border>
-            </Grid>
-        </Border>
+            </Border>
+
+            <Border x:Name="EmptyHint" Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Background="#F2FFFFFF" CornerRadius="10" Padding="28" BorderBrush="#33888888" BorderThickness="1"
+                    IsHitTestVisible="False">
+                <TextBlock Text="قطعه‌ای برای نقشهٔ فنی انتخاب نشده — در تب طراح یک قطعهٔ معتبر بسازید."
+                           FontSize="14" Foreground="#556" TextWrapping="Wrap" />
+            </Border>
+        </Grid>
 
         <!-- ستون کنترل -->
         <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="6">

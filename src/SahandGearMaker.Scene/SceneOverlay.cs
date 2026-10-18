@@ -32,34 +32,37 @@ public static class SceneOverlay
     public static void DrawWorldOverlay(byte[] pixels, float[] zbuf, int pw, int ph,
         in CameraFrame cam, (Vector3 Min, Vector3 Max) bounds, RenderOptions opt)
     {
-        double step = opt.GridStepMm > 0 ? opt.GridStepMm : NiceStep(Math.Max(bounds.Max.X - bounds.Min.X, bounds.Max.Y - bounds.Min.Y) / 10);
-        double extent = Math.Ceiling(Math.Max(
-            Math.Max(Math.Abs(bounds.Min.X), Math.Abs(bounds.Max.X)),
-            Math.Max(Math.Abs(bounds.Min.Y), Math.Abs(bounds.Max.Y))) / step) * step + step * 2;
-        extent = Math.Min(extent, step * 60);
+        // گام و گسترهٔ گرید از «نمای دوربین» می‌آید نه از ابعاد قطعات —
+        // جابه‌جایی/تغییر قطعات دیگر گرید را جابه‌جا یا پرش نمی‌دهد؛ چگالی خطوط روی صفحه تقریباً ثابت می‌ماند.
+        var (step, extentX, extentY) = ViewBasedGrid(cam, bounds);
 
         if (opt.ShowGrid)
         {
             var minor = new Rgb(196, 202, 214);
             var major = new Rgb(168, 176, 194);
-            int lines = (int)Math.Round(extent / step);
+            int linesX = (int)Math.Ceiling(extentX / step);
+            int linesY = (int)Math.Ceiling(extentY / step);
+            int lines = Math.Max(linesX, linesY);
+            lines = Math.Min(lines, 90); // سقف خطوط برای پایداری کارایی
             for (int i = -lines; i <= lines; i++)
             {
                 double p = i * step;
                 bool isMajor = i % 5 == 0;
                 var color = isMajor ? major : minor;
                 // خط موازی X
-                DrawWorldLine(pixels, zbuf, pw, ph, cam,
-                    new Vector3(-extent, p, 0), new Vector3(extent, p, 0), color);
+                if (Math.Abs(i) <= linesY)
+                    DrawWorldLine(pixels, zbuf, pw, ph, cam,
+                        new Vector3(-extentX, p, 0), new Vector3(extentX, p, 0), color);
                 // خط موازی Y
-                DrawWorldLine(pixels, zbuf, pw, ph, cam,
-                    new Vector3(p, -extent, 0), new Vector3(p, extent, 0), color);
+                if (Math.Abs(i) <= linesX)
+                    DrawWorldLine(pixels, zbuf, pw, ph, cam,
+                        new Vector3(p, -extentY, 0), new Vector3(p, extentY, 0), color);
             }
         }
 
         if (opt.ShowAxes)
         {
-            double axisLen = extent * 0.55;
+            double axisLen = Math.Max(extentX, extentY) * 0.75;
             DrawWorldLine(pixels, zbuf, pw, ph, cam, Vector3.Zero, new Vector3(axisLen, 0, 0), new Rgb(225, 92, 92), 2);
             DrawWorldLine(pixels, zbuf, pw, ph, cam, Vector3.Zero, new Vector3(0, axisLen, 0), new Rgb(84, 190, 104), 2);
             DrawWorldLine(pixels, zbuf, pw, ph, cam, Vector3.Zero, new Vector3(0, 0, axisLen), new Rgb(96, 130, 235), 2);
@@ -69,6 +72,71 @@ public static class SceneOverlay
             DrawWorldLine(pixels, zbuf, pw, ph, cam, new Vector3(0, -m, 0), new Vector3(0, m, 0), new Rgb(120, 128, 148), 2);
             DrawWorldLine(pixels, zbuf, pw, ph, cam, new Vector3(0, 0, -m), new Vector3(0, 0, m), new Rgb(120, 128, 148), 2);
         }
+    }
+
+    /// <summary>
+    /// گام 1-2-5 و گسترهٔ گرید از دید فعلی: ارتفاع دید در عمق هدف ملاک چگالی است
+    /// و گستره از تصویر چهار گوشهٔ صفحه روی صفحهٔ Z=0 (یا جایگزین هدف‌محور اگر نزدیک موازی).
+    /// نتیجه در مبدأ لنگر است و فقط در آستانه‌های زوم (×۲ یا ×۵) پله می‌پرد — رفتار استاندارد CAD.
+    /// </summary>
+    private static (double Step, double ExtentX, double ExtentY) ViewBasedGrid(
+        in CameraFrame cam, (Vector3 Min, Vector3 Max) fallbackBounds)
+    {
+        // اندازهٔ تقریبی جهانِ دیده‌شده در عمق هدف
+        double viewHeight;
+        if (cam.Projection == ProjectionKind.Perspective)
+            viewHeight = 2.0 * Math.Max(1.0, Math.Abs(Vector3.Dot(cam.Target - cam.Eye, cam.Forward))) * cam.HalfH / cam.Focal;
+        else
+            viewHeight = 2.0 * cam.HalfH / cam.OrthoScale;
+        double viewWidth = viewHeight * (cam.HalfW / Math.Max(1e-9, cam.HalfH));
+
+        double step = NiceStep(viewHeight / 8.0);
+
+        // گسترهٔ قابل‌مشاهده روی صفحهٔ Z=0 — از پرتو گوشه‌ها؛ اگر دید تقریباً موازی صفحه بود، جایگزین هدف‌محور
+        double ex = viewWidth * 0.75 + step, ey = viewHeight * 0.75 + step;
+        if (Math.Abs(cam.Forward.Z) > 0.08)
+        {
+            double worst = 0;
+            for (int corner = 0; corner < 4; corner++)
+            {
+                double px = (corner & 1) == 0 ? 0 : cam.HalfW * 2;
+                double py = (corner & 2) == 0 ? 0 : cam.HalfH * 2;
+                var ray = cam.RayThroughPixel(px, py);
+                double t = -ray.Origin.Z / ray.Direction.Z;
+                if (t > 1e-6 && t < 1e7)
+                {
+                    double gx = ray.Origin.X + ray.Direction.X * t;
+                    double gy = ray.Origin.Y + ray.Direction.Y * t;
+                    worst = Math.Max(worst, Math.Max(Math.Abs(gx), Math.Abs(gy)));
+                }
+                else
+                {
+                    worst = Math.Max(worst, Math.Max(viewWidth, viewHeight)); // دید موازی — جایگزین
+                }
+            }
+            if (worst > 1e-9)
+            {
+                ex = worst + step;
+                ey = worst + step;
+            }
+        }
+
+        // سقف گستره برای جلوگیری از انفجار خطوط در نماهای بسیار مایل
+        double maxExtent = step * 90;
+        ex = Math.Min(ex, maxExtent);
+        ey = Math.Min(ey, maxExtent);
+
+        // تضمین حداقل پوشش اطراف قطعات موجود (نمای خیلی دور نزدیک: قطعات داخل گرید بمانند)
+        double contentR = Math.Max(
+            Math.Max(Math.Abs(fallbackBounds.Min.X), Math.Abs(fallbackBounds.Max.X)),
+            Math.Max(Math.Abs(fallbackBounds.Min.Y), Math.Abs(fallbackBounds.Max.Y)));
+        if (contentR > 1e-9)
+        {
+            ex = Math.Max(ex, Math.Min(contentR + step, maxExtent));
+            ey = Math.Max(ey, Math.Min(contentR + step, maxExtent));
+        }
+
+        return (step, ex, ey);
     }
 
     /// <summary>رسم یک پاره‌خط جهانی با تست عمق (occlusion) — برش صفحهٔ نزدیک داخلی.</summary>

@@ -759,45 +759,53 @@ public partial class DesignerViewModel : ObservableObject
             return "طراحی سیاره‌ای ناسازگار است: " + string.Join("؛ ", design.Diagnostics.Select(d => d.Message));
 
         PushUndo();
+        // پخ نوک استاندارد (۰٫۱۵ ماژول) برای هر سه عضو — روش متداول ساخت؛
+        // گوشه‌های تیز نوک را بریده و تداخل گوشه-به-فیله در درگیری نزدیک را رفع می‌کند
+        double tipChamfer = Math.Max(0.05, 0.15 * module);
+
         // خورشیدی
         var sun = new GearPart
         {
             Name = "خورشیدی",
             Family = GearFamily.ExternalSpur,
             Teeth = new ToothParameters { Module = module, ToothCount = sunTeeth, FaceWidth = faceWidth },
-            Body = new BodyFeatures { BoreDiameter = Math.Max(4, module * 4) },
+            Body = new BodyFeatures { BoreDiameter = Math.Max(4, module * 4), TipChamferMm = tipChamfer },
             DisplayColor = "#DC2626",
         };
         AttachPart(sun, select: false);
 
-        // سیاره‌ها
+        // سیاره‌ها — فاز دندانهٔ هر سیاره (ψᵢ) برای درگیری صحیح با خورشیدی (رفع روی‌هم‌افتادن دندانه‌ها)
         for (int i = 0; i < planetCount; i++)
         {
             double ang = design.PlanetAngles.Length > i ? design.PlanetAngles[i] : 2 * Math.PI * i / planetCount;
+            double phase = design.PlanetPhases.Length > i ? design.PlanetPhases[i] : 0;
             var planet = new GearPart
             {
                 Name = $"سیارهٔ {i + 1}",
                 Family = GearFamily.ExternalSpur,
                 Teeth = new ToothParameters { Module = module, ToothCount = planetTeeth, FaceWidth = faceWidth },
-                Body = new BodyFeatures { BoreDiameter = Math.Max(4, module * 4) },
+                Body = new BodyFeatures { BoreDiameter = Math.Max(4, module * 4), TipChamferMm = tipChamfer },
                 DisplayColor = "#2563EB",
                 Placement = new Placement
                 {
                     X = design.PlanetOrbitRadiusMm * Math.Cos(ang),
                     Y = design.PlanetOrbitRadiusMm * Math.Sin(ang),
+                    Theta = phase,
                 },
             };
             AttachPart(planet, select: false);
             _project.Matings.Add(new MatingRelation { Kind = MatingKind.ExternalPair, PartAId = sun.Id, PartBId = planet.Id, Note = "جفت سیاره‌ای" });
         }
 
-        // حلقهٔ داخلی
+        // حلقهٔ داخلی — چرخش θᵣ برای هم‌فازی با سیاره‌ها
         var ring = new GearPart
         {
             Name = "حلقهٔ داخلی",
             Family = GearFamily.InternalSpur,
             Teeth = new ToothParameters { Module = module, ToothCount = design.RingTeeth, FaceWidth = faceWidth },
+            Body = new BodyFeatures { TipChamferMm = tipChamfer },
             DisplayColor = "#0D9488",
+            Placement = new Placement { Theta = design.RingRotationRad },
         };
         AttachPart(ring, select: false);
         _project.Matings.Add(new MatingRelation { Kind = MatingKind.InternalPair, PartAId = sun.Id, PartBId = ring.Id, Note = "خورشیدی داخل حلقه" });

@@ -8,7 +8,12 @@ public readonly record struct Rgb(byte R, byte G, byte B)
 {
     public static Rgb FromHex(string hex)
     {
-        hex = hex.TrimStart('#');
+        hex = hex.Trim().TrimStart('#');
+        // پشتیبانی از سه‌رقمی (#F59 = #FF5599) و هشت‌رقمی ARGB (#FFF59E0B → کانال آلفا دور ریخته می‌شود)
+        if (hex.Length == 8)
+            hex = hex[2..];
+        if (hex.Length == 3)
+            hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
         if (hex.Length == 6)
         {
             return new Rgb(

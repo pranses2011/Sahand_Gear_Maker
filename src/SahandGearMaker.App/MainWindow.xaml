@@ -65,6 +65,13 @@
             </Border>
 
             <TabControl x:Name="Pages" Grid.Column="1" Background="Transparent" BorderThickness="0" Margin="10">
+                <TabControl.Resources>
+                    <!-- مخفی‌کردن نوار تب‌های خالی بالای صفحه — ناوبری از طریق فهرست سمت راست انجام می‌شود
+                         (TabItem مخفی می‌شود اما محتوای تب انتخابی عادی نمایش داده می‌شود) -->
+                    <Style TargetType="TabItem">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                    </Style>
+                </TabControl.Resources>
                 <TabItem Header="" x:Name="TabHome">
                     <views:HomeView x:Name="HomeView" />
                 </TabItem>

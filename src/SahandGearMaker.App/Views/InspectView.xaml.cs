@@ -214,9 +214,9 @@ public partial class InspectView : UserControl
             (bounds.Min.Z + bounds.Max.Z) / 2);
         switch (SecondViewCombo.SelectedIndex)
         {
-            case 0: cam.SetView(0, 0.0001, size * 1.6, center, animate: false); break;
-            case 1: cam.SetView(0, 1.45, size * 1.6, center, animate: false); break;
-            case 2: cam.SetView(-Math.PI / 2, 0.0001, size * 1.6, center, animate: false); break;
+            case 0: cam.SetView(0, 0, size * 1.6, center, animate: false); break;
+            case 1: cam.SetView(0, Math.PI / 2, size * 1.6, center, animate: false); break;
+            case 2: cam.SetView(-Math.PI / 2, 0, size * 1.6, center, animate: false); break;
             default: cam.SetView(Math.PI / 6, Math.PI / 5, size * 2, center, animate: false); break;
         }
         SecondViewport.SetCameraDirect(cam);

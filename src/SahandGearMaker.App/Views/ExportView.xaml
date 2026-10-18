@@ -3,61 +3,148 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              FlowDirection="RightToLeft">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="16" MaxWidth="760" HorizontalAlignment="Center">
+        <StackPanel Margin="16" MaxWidth="860" HorizontalAlignment="Center">
 
             <TextBlock Text="خروجی" Style="{StaticResource TitleText}" Margin="0,0,0,4" />
             <TextBlock Style="{StaticResource MutedText}" Margin="0,0,0,14"
-                       Text="فقط فرمت‌های پیاده‌سازی‌شده فعال‌اند؛ خروجی همیشه «مش مثلثی» است، نه B-rep دقیق CAD." />
+                       Text="از فهرست فقط نام فرمت را انتخاب کنید؛ توضیح کامل در کارت کنار فهرست ظاهر می‌شود. خروجی همیشه «مش مثلثی» است، نه B-rep دقیق CAD." />
 
+            <!-- ═══ گام ۱ — فرمت: لیست نام‌ها + کارت توضیح ═══ -->
             <GroupBox Header="گام ۱ — فرمت">
-                <StackPanel>
-                    <ListBox x:Name="FormatList" SelectionChanged="FormatList_SelectionChanged" MinHeight="180" />
-                    <TextBlock x:Name="FormatNote" Style="{StaticResource MutedText}" Margin="0,8,0,0" TextWrapping="Wrap" />
-                </StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="220" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- فهرست فقط نام کوتاه فرمت -->
+                    <Border Grid.Column="0" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,0,1,0" Margin="0,0,8,0">
+                        <ListBox x:Name="FormatList" SelectionChanged="FormatList_SelectionChanged" MinHeight="230"
+                                 HorizontalContentAlignment="Stretch" BorderThickness="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="2,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding ShortName, Mode=OneWay}" FontSize="13.5" FontWeight="SemiBold"
+                                                   Foreground="{Binding Enabled, Mode=OneWay, Converter={StaticResource BoolToDimBrush}}" />
+                                        <TextBlock Grid.Column="1" Text="—" FontSize="11" Margin="6,0,0,0"
+                                                   Foreground="#B4BCCA"
+                                                   Visibility="{Binding Enabled, Mode=OneWay, Converter={StaticResource BoolToHidden}}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+
+                    <!-- کارت توضیح فرمت انتخابی -->
+                    <Border Grid.Column="1" Background="#FAFBFD" CornerRadius="10" Padding="16"
+                            BorderBrush="{StaticResource BrushBorder}" BorderThickness="1">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,8">
+                                <Border x:Name="FormatStatusBadge" DockPanel.Dock="Left" CornerRadius="9" Padding="10,3" Margin="0,0,10,0"
+                                        Background="#16A34A" VerticalAlignment="Center">
+                                    <TextBlock x:Name="FormatStatusText" Text="فعال" Foreground="White" FontSize="11.5" FontWeight="Bold" />
+                                </Border>
+                                <TextBlock x:Name="FormatTitle" Text="—" FontSize="15" FontWeight="Bold" Foreground="#1E293B"
+                                           VerticalAlignment="Center" TextWrapping="Wrap" />
+                            </DockPanel>
+
+                            <TextBlock x:Name="FormatDescription" Text="—" FontSize="12.5" Foreground="#334155"
+                                       TextWrapping="Wrap" LineHeight="21" Margin="0,0,0,10" />
+
+                            <UniformGrid Columns="2" Margin="0,0,0,4">
+                                <StackPanel>
+                                    <TextBlock Text="پسوند فایل" Style="{StaticResource MutedText}" FontSize="11" />
+                                    <TextBlock x:Name="FormatExtension" Text="—" FontSize="12.5" FontWeight="SemiBold"
+                                               FlowDirection="LeftToRight" HorizontalAlignment="Right" Foreground="#0F766E" Margin="0,0,0,6" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="کاربرد معمول" Style="{StaticResource MutedText}" FontSize="11" />
+                                    <TextBlock x:Name="FormatUseCase" Text="—" FontSize="12.5" FontWeight="SemiBold"
+                                               HorizontalAlignment="Right" Foreground="#0F766E" Margin="0,0,0,6" />
+                                </StackPanel>
+                            </UniformGrid>
+
+                            <Border Background="#FFF7ED" CornerRadius="8" Padding="10,7" Margin="0,4,0,0"
+                                    BorderBrush="#FDBA74" BorderThickness="1">
+                                <TextBlock x:Name="FormatNote" Text="—" FontSize="11.5" Foreground="#9A3412" TextWrapping="Wrap" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </GroupBox>
 
-            <GroupBox Header="گام ۲ — کیفیت مش">
-                <StackPanel>
-                    <TextBlock Text="پیش‌تنظیم" Style="{StaticResource MutedText}" Margin="0,2" />
-                    <ComboBox x:Name="QualityCombo" SelectionChanged="QualityCombo_SelectionChanged" HorizontalAlignment="Left" Width="240">
-                        <ComboBoxItem Content="پیش‌نمایش (سریع و سبک)" />
-                        <ComboBoxItem Content="معمولی (تبادل عمومی)" IsSelected="True" />
-                        <ComboBoxItem Content="دقیق (چاپ/جزئیات بیشتر)" />
-                    </ComboBox>
-                </StackPanel>
+            <!-- ═══ گام ۲ — محدوده و کیفیت ═══ -->
+            <GroupBox Header="گام ۲ — محدوده و کیفیت" Margin="0,10,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                        <TextBlock Text="محدودهٔ خروجی" Style="{StaticResource MutedText}" Margin="0,2,0,4"
+                                   ToolTip="با چند قطعه، دیگر فقط قطعهٔ اول خروجی گرفته نمی‌شود" />
+                        <ComboBox x:Name="ScopeCombo" SelectionChanged="ScopeCombo_SelectionChanged" SelectedIndex="0">
+                            <ComboBoxItem Content="قطعهٔ انتخابی" />
+                            <ComboBoxItem Content="همهٔ قطعات — یک فایل مونتاژ" />
+                            <ComboBoxItem Content="همهٔ قطعات — فایل جدا برای هر قطعه" />
+                        </ComboBox>
+                        <TextBlock x:Name="ScopeHint" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"
+                                   Text="«مونتاژ» همهٔ قطعات را با جای‌گذاری صحنه (موقعیت/چرخش/مقیاس) در یک فایل ترکیب می‌کند." />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                        <TextBlock Text="کیفیت مش" Style="{StaticResource MutedText}" Margin="0,2,0,4" />
+                        <ComboBox x:Name="QualityCombo" SelectionChanged="QualityCombo_SelectionChanged" SelectedIndex="1">
+                            <ComboBoxItem Content="همانِ طراح (سریع)" />
+                            <ComboBoxItem Content="معمولی — تلرانس ۰٫۰۲mm" />
+                            <ComboBoxItem Content="دقیق — ۰٫۰۰۸mm" />
+                            <ComboBoxItem Content="خیلی دقیق (Ultra) — ۰٫۰۰۴mm" />
+                            <ComboBoxItem Content="حداکثر (Precision) — ۰٫۰۰۲mm" />
+                        </ComboBox>
+                        <TextBlock x:Name="QualityHint" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"
+                                   Text="کیفیت‌های بالا هندسه را با تلرانس ظریف‌تر بازمی‌سازند — مثلث‌های بیشتر و سطح نرم‌تر." />
+                    </StackPanel>
+                </Grid>
             </GroupBox>
 
-            <GroupBox Header="گام ۳ — واحد">
+            <!-- ═══ گام ۳ — واحد ═══ -->
+            <GroupBox Header="گام ۳ — واحد" Margin="0,10,0,0">
                 <StackPanel>
                     <TextBlock Style="{StaticResource MutedText}" Margin="0,2,0,6" TextWrapping="Wrap"
                                Text="STL واحد درون‌فایلی ندارد؛ واحد انتخابی در نام/گزارش همراه درج می‌شود. GLB طبق استاندارد به متر تبدیل می‌شود." />
-                    <ComboBox x:Name="UnitCombo" SelectionChanged="UnitCombo_SelectionChanged" HorizontalAlignment="Left" Width="240">
-                        <ComboBoxItem Content="میلی‌متر" IsSelected="True" />
+                    <ComboBox x:Name="UnitCombo" SelectionChanged="UnitCombo_SelectionChanged" HorizontalAlignment="Left" Width="240" SelectedIndex="0">
+                        <ComboBoxItem Content="میلی‌متر" />
                         <ComboBoxItem Content="اینچ" />
                     </ComboBox>
                 </StackPanel>
             </GroupBox>
 
             <Button Content="خروجی بگیر…" Click="Export_Click" HorizontalAlignment="Left"
-                    Padding="24,10" Margin="0,8,0,4" />
+                    Padding="24,10" Margin="0,12,0,4" />
 
             <GroupBox Header="نتیجه و گزارش" Margin="0,10">
                 <StackPanel>
                     <TextBlock x:Name="StatusText" Style="{StaticResource SectionText}" Margin="0,0,0,8" TextWrapping="Wrap" />
-                    <ListBox x:Name="ReportList" MinHeight="120" />
+                    <ListBox x:Name="ReportList" MinHeight="120" FontSize="11.5" FlowDirection="LeftToRight"
+                             HorizontalContentAlignment="Left" />
                 </StackPanel>
             </GroupBox>
 
             <!-- خروجی دسته‌ای (فاز ۲٫۵): همهٔ قطعات/گونه‌ها با یک تنظیم؛ شکست جزئی پنهان نمی‌شود -->
-            <GroupBox Header="خروجی دسته‌ای همهٔ قطعات (فاز ۲٫۵)" Margin="0,10,0,0">
+            <GroupBox Header="خروجی سریع همهٔ قطعات (STL پیش‌فرض)" Margin="0,10,0,0">
                 <StackPanel>
                     <TextBlock Style="{StaticResource MutedText}" FontSize="11.5" TextWrapping="Wrap" Margin="0,2,0,8"
-                               Text="همهٔ قطعات دارای ساخت معتبر با فرمت و کیفیت بالا صادر می‌شوند. شکست هر فایل بقیه را متوقف نمی‌کند و در گزارش می‌آید." />
+                               Text="همهٔ قطعات دارای ساخت معتبر با فرمت و کیفیت بالا صادر می‌شوند. شکست هر فایل بقیه را متوقف نمی‌کند و در گزارش می‌آید. برای کنترل کامل، از «محدودهٔ خروجی» در گام ۲ استفاده کنید." />
                     <UniformGrid Columns="2">
                         <StackPanel Margin="0,0,8,4">
-                            <TextBlock Text="فرمت دسته‌ای" Style="{StaticResource MutedText}" FontSize="11" />
-                            <ComboBox x:Name="BatchFormatCombo" FontSize="12">
-                                <ComboBoxItem Content="STL باینری" IsSelected="True" />
+                            <TextBlock Text="فرمت سریع" Style="{StaticResource MutedText}" FontSize="11" />
+                            <ComboBox x:Name="BatchFormatCombo" FontSize="12" SelectedIndex="0">
+                                <ComboBoxItem Content="STL باینری" />
                                 <ComboBoxItem Content="STL متنی" />
                                 <ComboBoxItem Content="OBJ" />
                                 <ComboBoxItem Content="PLY" />
@@ -67,7 +154,7 @@
                             </ComboBox>
                         </StackPanel>
                         <StackPanel Margin="8,0,0,4" VerticalAlignment="Bottom">
-                            <Button Content="خروجی دسته‌ای…" Click="BatchExport_Click" />
+                            <Button Content="خروجی سریع…" Click="BatchExport_Click" />
                         </StackPanel>
                     </UniformGrid>
                     <TextBlock x:Name="BatchResult" Style="{StaticResource MutedText}" FontSize="11.5" TextWrapping="Wrap" Margin="0,6,0,0" />

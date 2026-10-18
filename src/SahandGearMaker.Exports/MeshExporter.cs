@@ -14,6 +14,10 @@ public enum MeshQualityPreset
     Standard,
     /// <summary>چاپ/جزئیات بیشتر — تلرانس کمتر.</summary>
     Fine,
+    /// <summary>خیلی دقیق — تلرانس ۰٫۰۰۴mm؛ برای چاپ دقیق و STL نهایی.</summary>
+    Ultra,
+    /// <summary>حداکثر دقت — تلرانس ۰٫۰۰۲mm؛ سنگین و کند، برای قطعات حساس.</summary>
+    Precision,
 }
 
 /// <summary>تنظیمات خروجی مش.</summary>
@@ -39,8 +43,43 @@ public sealed class MeshExportSettings
     {
         MeshQualityPreset.Preview => Math.Max(0.20, modelSizeMm * 0.004),
         MeshQualityPreset.Fine => Math.Max(0.005, modelSizeMm * 0.0005),
+        MeshQualityPreset.Ultra => Math.Max(0.004, modelSizeMm * 0.00025),
+        MeshQualityPreset.Precision => Math.Max(0.002, modelSizeMm * 0.00012),
         _ => Math.Max(0.02, modelSizeMm * 0.0015),
     };
+
+    /// <summary>تنظیمات هندسهٔ بازسازی‌شده برای این پیش‌تنظیم — تلرانس پروفیل + برش‌های محوری.</summary>
+    public Domain.GeometrySettings ToGeometrySettings(Domain.GeometrySettings? current = null)
+    {
+        var g = new Domain.GeometrySettings
+        {
+            ProfileToleranceMm = Preset switch
+            {
+                MeshQualityPreset.Preview => 0.10,
+                MeshQualityPreset.Standard => 0.02,
+                MeshQualityPreset.Fine => 0.008,
+                MeshQualityPreset.Ultra => 0.004,
+                MeshQualityPreset.Precision => 0.002,
+                _ => 0.02,
+            },
+            AxialSliceCount = Preset switch
+            {
+                MeshQualityPreset.Preview => 12,
+                MeshQualityPreset.Standard => 24,
+                MeshQualityPreset.Fine => 48,
+                MeshQualityPreset.Ultra => 96,
+                MeshQualityPreset.Precision => 160,
+                _ => 24,
+            },
+        };
+        if (current is not null && Preset == MeshQualityPreset.Preview)
+        {
+            // «همانِ طراح» مش موجود را نگه می‌داریم؛ این مقدار فقط جهت گزارش است
+            g.ProfileToleranceMm = current.ProfileToleranceMm;
+            g.AxialSliceCount = current.AxialSliceCount;
+        }
+        return g;
+    }
 }
 
 /// <summary>گزارش خروجی پس از نوشتن فایل (سند ۰۴، بخش ۴-گام D).</summary>

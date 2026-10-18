@@ -1,9 +1,14 @@
 <Application x:Class="SahandGearMaker.App.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:app="clr-namespace:SahandGearMaker.App"
              ShutdownMode="OnLastWindowClose">
     <!-- پنجرهٔ اصلی در App.OnStartup ساخته می‌شود (عنوان پنجره حاوی شمارهٔ نسخه از AppInfo است) -->
     <Application.Resources>
+
+        <!-- ═══ مبدل‌های عمومی (صفحهٔ خروجی) ═══ -->
+        <app:BoolToBrushConverter x:Key="BoolToDimBrush" TrueBrush="#FF1E293B" FalseBrush="#FFA8B0BC" />
+        <app:BoolToVisibilityConverter x:Key="BoolToHidden" WhenTrue="Collapsed" WhenFalse="Visible" />
 
         <!-- ═══ پالت رنگ سند ۰۲، بخش ۸ ═══ -->
         <Color x:Key="ColorNavy">#FF142238</Color>

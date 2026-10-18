@@ -103,6 +103,12 @@ public static class TechnicalDrawingBuilder
         view.Scale = 1.0;
         doc.Views.Add(view);
 
+        // ---------- نمای جانبی (ارتفاع) — نگاه از کنار: قطر سر × پهنا + بور/توپی ----------
+        var side = new DrawingView { Title = "نمای جانبی (ارتفاع)" };
+        BuildSideView(side, part, fig);
+        if (side.Outlines.Count > 0)
+            doc.Views.Add(side);
+
         // ---------- جدول پارامترها ----------
         doc.Parameters.Add(new("نوع قطعه", PersianFamilyName(part.Family), "—"));
         doc.Parameters.Add(new("تعداد دندانه", fig.ToothCount.ToString(), "—"));
@@ -127,6 +133,144 @@ public static class TechnicalDrawingBuilder
             doc.Notes.Add($"هشدار سازنده: {unverified.Message}");
 
         return doc;
+    }
+
+    /// <summary>سند سبک فقط از مش (بدون پارامترهای قطعه) — برای خروجی DXF پروفیل از مش تجمیعی.</summary>
+    public static TechnicalDrawingDocument BuildFromMesh(TriMesh mesh, string? partName = null)
+    {
+        var doc = new TechnicalDrawingDocument
+        {
+            Title = "پروفیل مقطع",
+            PartName = partName ?? "mesh",
+            ProjectName = "—",
+        };
+        var view = new DrawingView { Title = "نمای دایره‌ای (پلان)" };
+        var outline = ExtractOuterOutline(mesh);
+        if (outline.Count > 8)
+            view.Outlines.Add(outline);
+        var (minB, maxB) = mesh.Bounds();
+        double cx = (minB.X + maxB.X) / 2, cy = (minB.Y + maxB.Y) / 2;
+        double r = Math.Max(maxB.X - minB.X, maxB.Y - minB.Y) / 2;
+        view.Bounds = (cx - r * 1.18, cy - r * 1.18, cx + r * 1.18, cy + r * 1.18);
+        doc.Views.Add(view);
+        return doc;
+    }
+
+    /// <summary>
+    /// نمای جانبی (ارتفاع): از کنار — کانتور قطر سر × پهنای دندانه با بور و توپی (خانوادهٔ استوانه‌ای)
+    /// یا سیلوئت عمومی از مش برای بقیهٔ خانواده‌ها (نمای دوم برای نقشهٔ فنی کامل‌تر).
+    /// </summary>
+    private static void BuildSideView(DrawingView side, GearPart part, GearGeometryFigures fig)
+    {
+        bool cylindrical = part.Family is GearFamily.ExternalSpur or GearFamily.ExternalHelical
+            or GearFamily.ExternalHerringbone or GearFamily.InternalSpur or GearFamily.InternalHelical
+            or GearFamily.CrossedHelical or GearFamily.Cycloidal
+            or GearFamily.SplineExternal or GearFamily.SplineInternal or GearFamily.HarmonicDrive;
+
+        if (cylindrical)
+        {
+            double rTip = fig.TipRadius;
+            double w = Math.Max(1e-6, part.Teeth.FaceWidth);
+            double z0 = 0, z1 = w;
+
+            // کانتور بیرونی (مستطیل قطر سر × پهنا)
+            var outline = new List<(double X, double Y)>
+            {
+                (-rTip, z0), (rTip, z0), (rTip, z1), (-rTip, z1), (-rTip, z0),
+            };
+            side.Outlines.Add(outline);
+
+            // قطر ریشه (خطوط مرجع بالای سطح دندانه‌ها)
+            double rRoot = fig.RootRadius;
+            if (rRoot > 0 && rRoot < rTip)
+            {
+                side.Lines.Add(new DrawingLine(-rRoot, z0, -rRoot, z1, "solid", 0.2));
+                side.Lines.Add(new DrawingLine(rRoot, z0, rRoot, z1, "solid", 0.2));
+            }
+
+            // بور (اگر باشد)
+            double rBore = part.Body.BoreDiameter / 2.0;
+            if (rBore > 1e-6 && rBore < rTip)
+            {
+                side.Lines.Add(new DrawingLine(-rBore, z0, -rBore, z1, "solid", 0.25));
+                side.Lines.Add(new DrawingLine(rBore, z0, rBore, z1, "solid", 0.25));
+                side.Texts.Add(new DrawingText(0, z1 + 3, $"Øبور {2 * rBore:F2}", 2.2, "center"));
+            }
+
+            // توپی (برآمدگی سمت +Z)
+            if (part.Body.HubDiameter > 0 && part.Body.HubLength > 0)
+            {
+                double rHub = Math.Min(part.Body.HubDiameter / 2.0, rTip);
+                double zh = Math.Min(part.Body.HubLength, w);
+                side.Lines.Add(new DrawingLine(-rHub, z1, -rHub, z1 + zh, "solid", 0.25));
+                side.Lines.Add(new DrawingLine(rHub, z1, rHub, z1 + zh, "solid", 0.25));
+                side.Lines.Add(new DrawingLine(-rHub, z1 + zh, rHub, z1 + zh, "solid", 0.25));
+            }
+
+            // خط مرکز محوری
+            side.Lines.Add(new DrawingLine(-rTip * 1.12, w / 2, rTip * 1.12, w / 2, "center", 0.18));
+
+            // اندازهٔ پهنا
+            side.Texts.Add(new DrawingText(rTip * 1.05, z0 + w / 2, $"پهنا {w:F2}", 2.2, "left"));
+
+            side.Bounds = (-rTip * 1.2, -1, rTip * 1.2, w + Math.Max(4, part.Body.HubLength));
+        }
+        else
+        {
+            // سیلوئت عمومی: تصویر مش روی صفحهٔ XZ (نمایش تقریبیِ صادقانه برای خانواده‌های خاص)
+            var outline = ExtractXZSilhouette(part);
+            if (outline.Count > 4)
+            {
+                side.Outlines.Add(outline);
+                double minX = outline.Min(p => p.X), maxX = outline.Max(p => p.X);
+                double minY = outline.Min(p => p.Y), maxY = outline.Max(p => p.Y);
+                side.Lines.Add(new DrawingLine(minX - 4, (minY + maxY) / 2, maxX + 4, (minY + maxY) / 2, "center", 0.18));
+                side.Bounds = (minX - 5, minY - 2, maxX + 5, maxY + 2);
+            }
+        }
+    }
+
+    /// <summary>سیلوئت جانبی از مش: بیشینه/کمینهٔ Z در سطل‌های X (نمای ارتفاع تقریبی).</summary>
+    private static List<(double X, double Y)> ExtractXZSilhouette(GearPart part)
+    {
+        var outline = new List<(double X, double Y)>();
+        try
+        {
+            var build = SahandGearMaker.Geometry.GearGeometryEngine.BuildPart(part);
+            var mesh = build.Mesh;
+            var (min, max) = mesh.Bounds();
+            const int bins = 160;
+            double w = Math.Max(1e-9, max.X - min.X);
+            var zTop = new double[bins];
+            var zBot = new double[bins];
+            Array.Fill(zTop, double.NaN);
+            Array.Fill(zBot, double.NaN);
+            foreach (var v in mesh.Vertices)
+            {
+                int b = Math.Clamp((int)((v.X - min.X) / w * bins), 0, bins - 1);
+                if (double.IsNaN(zTop[b]) || v.Z > zTop[b]) zTop[b] = v.Z;
+                if (double.IsNaN(zBot[b]) || v.Z < zBot[b]) zBot[b] = v.Z;
+            }
+            for (int i = 0; i < bins; i++)
+            {
+                if (double.IsNaN(zTop[i]))
+                    continue;
+                double x = min.X + (i + 0.5) / bins * w;
+                outline.Add((x, zBot[i]));
+            }
+            for (int i = bins - 1; i >= 0; i--)
+            {
+                if (double.IsNaN(zTop[i]))
+                    continue;
+                double x = min.X + (i + 0.5) / bins * w;
+                outline.Add((x, zTop[i]));
+            }
+        }
+        catch
+        {
+            // ساخت ناموفق — نمای جانبی خالی می‌ماند (نمای دایره‌ای کافی است)
+        }
+        return outline;
     }
 
     /// <summary>مرز بیرونی نما: بیشینهٔ شعاع در سطل‌های زاویه‌ای (چرخ‌دنده‌ها ستاره‌ای‌شکل‌اند).</summary>
