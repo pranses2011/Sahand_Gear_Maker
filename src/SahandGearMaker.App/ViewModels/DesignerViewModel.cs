@@ -1,0 +1,232 @@
+using System.Collections.ObjectModel;
+using System.IO;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Microsoft.Win32;
+using SahandGearMaker.Domain;
+using SahandGearMaker.Exports;
+using SahandGearMaker.Geometry;
+using SahandGearMaker.Persistence;
+
+namespace SahandGearMaker.App.ViewModels;
+
+/// <summary>مدل نمایش یک پیام اعتبارسنجی.</summary>
+public partial class DiagnosticViewModel : ObservableObject
+{
+    public string Code { get; init; } = string.Empty;
+    public Severity Severity { get; init; }
+    public string Message { get; init; } = string.Empty;
+
+    public string SeverityLabel => Severity switch
+    {
+        Severity.Error => "خطا",
+        Severity.Warning => "هشدار",
+        Severity.Info => "اطلاع",
+        _ => "بررسی‌نشده",
+    };
+}
+
+/// <summary>
+/// مدل نمایش طراح پارامتریک — برش عمودی اصلی برنامه (سند ۰۲، بخش ۶.۲).
+/// ورودی نامعتبر، پیام قابل‌فهم می‌دهد و UI نمی‌ریزد.
+/// </summary>
+public partial class DesignerViewModel : ObservableObject
+{
+    private GearProject _project = new() { Name = "پروژهٔ بدون نام" };
+    private GearPart? _selectedPart;
+    private GearBuildResult? _lastBuild;
+
+    public ObservableCollection<GearPart> Parts => new(_project.Parts);
+
+    [ObservableProperty]
+    private string _projectName = "پروژهٔ بدون نام";
+
+    [ObservableProperty]
+    private ObservableCollection<DiagnosticViewModel> _diagnostics = new();
+
+    [ObservableProperty]
+    private string? _currentFilePath;
+
+    /// <summary>مش آخرین ساخت موفق برای پیش‌نمایش/خروجی.</summary>
+    public GearBuildResult? LastBuild => _lastBuild;
+
+    public IReadOnlyList<GearFamily> SupportedFamilies { get; } = new[]
+    {
+        GearFamily.ExternalSpur,
+        GearFamily.ExternalHelical,
+        GearFamily.ExternalHerringbone,
+        GearFamily.InternalSpur,
+        GearFamily.Rack,
+    };
+
+    public DesignerViewModel()
+    {
+        AddPartCommand.Execute(null); // شروع با یک قطعهٔ نمونه
+    }
+
+    [RelayCommand]
+    private void NewProject()
+    {
+        _project = new GearProject { Name = "پروژهٔ بدون نام" };
+        ProjectName = _project.Name;
+        CurrentFilePath = null;
+        OnPropertyChanged(nameof(Parts));
+        SelectedPart = null;
+        _lastBuild = null;
+        Diagnostics.Clear();
+    }
+
+    [RelayCommand]
+    private void OpenProject()
+    {
+        var dlg = new OpenFileDialog
+        {
+            Title = "بازکردن پروژه",
+            Filter = $"پروژهٔ طراح چرخ‌دنده (*{ProjectFile.FileExtension})|*{ProjectFile.FileExtension}",
+            CheckFileExists = true,
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        try
+        {
+            _project = ProjectFile.Load(dlg.FileName);
+            ProjectName = _project.Name;
+            CurrentFilePath = dlg.FileName;
+            OnPropertyChanged(nameof(Parts));
+            SelectedPart = _project.Parts.FirstOrDefault();
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Clear();
+            Diagnostics.Add(new DiagnosticViewModel
+            {
+                Severity = Severity.Error,
+                Code = "SGM-UI-OPEN",
+                Message = $"بازکردن پروژه ناموفق بود: {ex.Message}",
+            });
+        }
+    }
+
+    [RelayCommand]
+    private void SaveProject()
+    {
+        if (CurrentFilePath is null) { SaveProjectAs(); return; }
+        TrySave(CurrentFilePath);
+    }
+
+    [RelayCommand]
+    private void SaveProjectAs()
+    {
+        var dlg = new SaveFileDialog
+        {
+            Title = "ذخیرهٔ پروژه",
+            Filter = $"پروژهٔ طراح چرخ‌دنده (*{ProjectFile.FileExtension})|*{ProjectFile.FileExtension}",
+            FileName = MeshExporter.SanitizeName(ProjectName) + ProjectFile.FileExtension,
+            OverwritePrompt = true,
+        };
+        if (dlg.ShowDialog() != true) return;
+        TrySave(dlg.FileName);
+    }
+
+    private void TrySave(string path)
+    {
+        try
+        {
+            _project.Name = ProjectName;
+            ProjectFile.Save(_project, path);
+            CurrentFilePath = path;
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Add(new DiagnosticViewModel
+            {
+                Severity = Severity.Error,
+                Code = "SGM-UI-SAVE",
+                Message = $"ذخیره‌سازی ناموفق بود: {ex.Message} — فایل قبلی (در صورت وجود) دست‌نخورده است.",
+            });
+        }
+    }
+
+    [RelayCommand]
+    private void AddPart()
+    {
+        var part = new GearPart
+        {
+            Name = $"چرخ‌دندهٔ {Parts.Count + 1}",
+            Family = GearFamily.ExternalSpur,
+        };
+        _project.Parts.Add(part);
+        OnPropertyChanged(nameof(Parts));
+        SelectedPart = part;
+    }
+
+    [RelayCommand]
+    private void RemovePart(GearPart? part)
+    {
+        if (part is null) return;
+        _project.Parts.Remove(part);
+        _project.Matings.RemoveAll(m => m.PartAId == part.Id || m.PartBId == part.Id);
+        OnPropertyChanged(nameof(Parts));
+        if (ReferenceEquals(SelectedPart, part)) SelectedPart = _project.Parts.FirstOrDefault();
+    }
+
+    [RelayCommand]
+    private void DuplicatePart(GearPart? part)
+    {
+        if (part is null) return;
+        var copy = part.Clone(part.Name + " (کپی)");
+        _project.Parts.Add(copy);
+        OnPropertyChanged(nameof(Parts));
+        SelectedPart = copy;
+    }
+
+    public GearPart? SelectedPart
+    {
+        get => _selectedPart;
+        set
+        {
+            if (SetProperty(ref _selectedPart, value))
+                Rebuild();
+        }
+    }
+
+    /// <summary>بازسازی هندسهٔ قطعهٔ انتخابی و نمایش پیام‌ها — تغییر پارامتر این را صدا می‌زند.</summary>
+    public void Rebuild()
+    {
+        Diagnostics.Clear();
+        if (_selectedPart is null) { _lastBuild = null; return; }
+
+        try
+        {
+            var result = GearGeometryEngine.BuildPart(_selectedPart);
+            _lastBuild = result;
+            _selectedPart.Validation = result.Diagnostics.ToList();
+            foreach (var d in result.Diagnostics)
+                Diagnostics.Add(new DiagnosticViewModel { Code = d.Code, Severity = d.Severity, Message = d.Message });
+        }
+        catch (GeometryBuildException gex)
+        {
+            _lastBuild = null;
+            foreach (var d in gex.Diagnostics)
+                Diagnostics.Add(new DiagnosticViewModel { Code = d.Code, Severity = d.Severity, Message = d.Message });
+            Diagnostics.Add(new DiagnosticViewModel
+            {
+                Severity = Severity.Error,
+                Code = "SGM-UI-BUILD",
+                Message = gex.Message,
+            });
+        }
+        catch (Exception ex)
+        {
+            _lastBuild = null;
+            Diagnostics.Add(new DiagnosticViewModel
+            {
+                Severity = Severity.Error,
+                Code = "SGM-UI-BUILD",
+                Message = $"ساخت هندسه با خطا متوقف شد: {ex.Message}",
+            });
+        }
+    }
+
+    partial void OnProjectNameChanged(string value) => _project.Name = value;
+}
