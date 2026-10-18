@@ -37,7 +37,7 @@ public static class GearGeometryEngine
 
         return family switch
         {
-            GearFamily.Rack => RackMeshBuilder.Build(family, teeth, body, quality),
+            GearFamily.Rack or GearFamily.HelicalRack => RackMeshBuilder.Build(family, teeth, body, quality),
             _ => CylindricalGearMeshBuilder.Build(family, teeth, body, quality),
         };
     }

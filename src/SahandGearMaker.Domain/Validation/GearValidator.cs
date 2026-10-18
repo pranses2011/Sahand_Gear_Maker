@@ -72,7 +72,7 @@ public static class GearValidator
                 list.Add(new(DiagnosticCodes.MeshTooHeavy, Severity.Warning,
                     "تعداد دندانهٔ زیاد، مش بسیار سنگینی می‌سازد؛ پیش‌نمایش کند و فایل خروجی حجیم می‌شود.", "ToothCount"));
 
-            if (family == GearFamily.InternalSpur && p.ToothCount < 18)
+            if (family is GearFamily.InternalSpur or GearFamily.InternalHelical && p.ToothCount < 18)
                 list.Add(new(DiagnosticCodes.InternalToothCountInvalid, Severity.Error,
                     "برای چرخ‌دندهٔ داخلی، حداقل تعداد دندانهٔ معقول ۱۸ است (دندانهٔ کمتر ریسک تداخل جدی دارد).", "ToothCount"));
         }
@@ -91,10 +91,10 @@ public static class GearValidator
                     $"اصلاح پروفیل x={p.ProfileShiftCoefficient:F3} اعمال می‌شود؛ در محاسبهٔ فاصلهٔ محور جفت‌ها اثر آن لحاظ شده است.", "ProfileShiftCoefficient"));
         }
 
-        // مارپیچ — روش ساخت بدنه تقریب برش‌هاست
-        if (Math.Abs(p.HelixAngle) > 1e-9 && family is GearFamily.ExternalHelical)
-            list.Add(new(DiagnosticCodes.HelicalApproximation, Severity.Warning,
-                "بدنهٔ مارپیچ با برش‌های موازی صفحهٔ عرضی ساخته می‌شود؛ دقت سطح جانبی به تعداد برش (تنظیم کیفیت مش) وابسته است.", "HelixAngle"));
+        // مارپیچ — تعداد برش به‌صورت تطبیقی از تلرانس وتر محاسبه می‌شود
+        if (Math.Abs(p.HelixAngle) > 1e-9 && family is GearFamily.ExternalHelical or GearFamily.InternalHelical or GearFamily.HelicalRack)
+            list.Add(new(DiagnosticCodes.HelicalApproximation, Severity.Info,
+                "بدنهٔ مارپیچ با برش‌های موازی صفحهٔ عرضی ساخته می‌شود؛ تعداد برش به‌صورت تطبیقی از تلرانس وتر تنظیم می‌شود (دقت قابل کنترل با «تلرانس پروفیل»).", "HelixAngle"));
 
         // موارد بررسی‌نشده — صادقانه (سند ۰۳، بخش ۸)
         list.Add(new(DiagnosticCodes.ContactAnalysisNotRun, Severity.Unverified,

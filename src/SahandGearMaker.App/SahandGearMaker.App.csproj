@@ -14,13 +14,13 @@
     <Product>Sahand Gear Designer</Product>
     <Company>سعید نجفی</Company>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- اجازهٔ کامپایل پروژهٔ ویندوزی روی لینوکس/CI غیرویندوزی (فقط بیلد، نه اجرا) -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- MVVM — MIT، نگهداری‌شده توسط تیم .NET -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
-    <!-- آیکون‌های برداری بسته‌بندی‌شده — MIT (بدون دانلود در زمان اجرا) -->
-    <PackageReference Include="MahApps.Metro.IconPacks.Bootstrap" Version="5.1.0" />
   </ItemGroup>
 
   <ItemGroup>

@@ -33,10 +33,25 @@ public static class RackMeshBuilder
         var fig = GearFiguresCalculator.Compute(family, teeth);
 
         double pitch = Math.PI * teeth.Module;
-        // طول شانه از فیلد شعاع دایرهٔ حفره‌ها (در شانه = طول مفاز) یا پیش‌فرض
-        double requestedLength = bodyParams.LighteningHoleCircleRadius > 0
-            ? bodyParams.LighteningHoleCircleRadius
-            : 10.0 * pitch;
+
+        // طول شانه: پارامتر مستقل (RackLengthMm)؛ برای سازگاری با پروژه‌های قدیمی،
+        // مقدار «شعاع دایرهٔ حفره‌ها» به‌عنوان طول قدیمی خوانده می‌شود (با پیام اطلاع).
+        double requestedLength;
+        if (bodyParams.RackLengthMm > 0)
+        {
+            requestedLength = bodyParams.RackLengthMm;
+        }
+        else if (bodyParams.LighteningHoleCircleRadius > 0)
+        {
+            requestedLength = bodyParams.LighteningHoleCircleRadius;
+            diags.Add(new GearDiagnostic("SGM-I406", Severity.Info,
+                $"طول شانه از فیلد قدیمی «شعاع دایرهٔ حفره‌ها» ({requestedLength:F1} mm) خوانده شد؛ برای پروژه‌های جدید فیلد «طول شانه» را تنظیم کنید.", "RackLengthMm"));
+        }
+        else
+        {
+            requestedLength = 10.0 * pitch;
+        }
+
         int toothCount = Math.Max(1, (int)Math.Floor(requestedLength / pitch));
         double length = (toothCount + 0.5) * pitch;
 
@@ -60,7 +75,9 @@ public static class RackMeshBuilder
         var mesh = new TriMesh();
         double width = Math.Max(teeth.FaceWidth, 1e-6);
         bool helical = Math.Abs(teeth.HelixAngle) > 1e-9;
-        int slices = helical ? Math.Clamp(quality.AxialSliceCount, 4, 400) : 2;
+        int slices = helical
+            ? Math.Clamp(quality.AxialSliceCount, 4, 400)
+            : 2;
         double shiftFactor = Math.Tan(teeth.HelixAngle); // شیب نسبی X به Z
 
         // ---- حلقه‌های برش ----

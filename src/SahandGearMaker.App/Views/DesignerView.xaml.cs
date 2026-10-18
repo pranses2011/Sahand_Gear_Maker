@@ -20,7 +20,7 @@ public partial class DesignerView : UserControl
     private MainWindow? _main;
     private DesignerViewModel VM => _main!.Designer;
     private OrbitCamera _camera = new();
-    private readonly System.Timers.DispatcherTimer? _renderTimer;
+    private readonly System.Windows.Threading.DispatcherTimer? _renderTimer;
     private bool _renderQueued;
     private bool _dragging;
     private Point _lastMouse;

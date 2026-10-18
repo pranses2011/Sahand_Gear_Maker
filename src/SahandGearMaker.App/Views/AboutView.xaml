@@ -66,7 +66,7 @@
                 <StackPanel>
                     <TextBlock Text="سرمایهٔ نرم‌افزاری" Style="{StaticResource SectionText}" Margin="0,0,0,8" />
                     <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap" Margin="0,2"
-                               Text="فونت وزیرمتن با مجوز OFL 1.1 همراه برنامه است (متن مجوز در پوشهٔ Fonts). سایر وابستگی‌ها: CommunityToolkit.Mvvm و MahApps IconPacks با مجوز MIT. فهرست کامل در مستندات مخزن." />
+                               Text="فونت وزیرمتن با مجوز OFL 1.1 همراه برنامه است (متن مجوز در پوشهٔ Fonts). سایر وابستگی‌ها: CommunityToolkit.Mvvm با مجوز MIT. فهرست کامل در مستندات مخزن." />
                 </StackPanel>
             </Border>
         </StackPanel>

@@ -20,7 +20,7 @@ public partial class FeedbackView : UserControl
         _vm.CategoryIndex = CategoryCombo.SelectedIndex;
         _vm.Message = MessageText.Text;
         _vm.Contact = ContactText.Text;
-        await _vm.SendAsync();
+        await _vm.SendCommand.ExecuteAsync(null);
         SendStatus.Text = _vm.Status;
     }
 

@@ -125,13 +125,13 @@ internal sealed class VertexPool
     public IReadOnlyList<double> RingBaseAngles(int slice, string ringKey)
         => _ringAngles.TryGetValue((slice, ringKey), out var a) ? a : Array.Empty<double>();
 
-    /// <summary>حلقهٔ بور با شیار خار (برش + مستطیل خار در بالای دایره).</summary>
-    public List<int> RingWithKeyway(int slice, double radius, double keywayWidth, double keywayDepth, double chordTol)
+    /// <summary>حلقهٔ بور با شیار خار (برش + شیار روی دایره؛ انتهای تخت یا نیم‌دایره).</summary>
+    public List<int> RingWithKeyway(int slice, double radius, double keywayWidth, double keywayDepth, double chordTol, double endRadius = 0.0)
     {
         if (keywayWidth <= 0 || keywayDepth <= 0)
             return Ring(slice, "bore", radius, chordTol);
 
-        var key = (slice, $"bore+kw{keywayWidth:F4}x{keywayDepth:F4}");
+        var key = (slice, $"bore+kw{keywayWidth:F4}x{keywayDepth:F4}x{endRadius:F4}");
         if (_rings.TryGetValue(key, out var cached))
             return cached;
 
@@ -139,9 +139,9 @@ internal sealed class VertexPool
         double aEdge = Math.Asin(Math.Min(0.999, halfW / radius)); // زاویهٔ لبهٔ خار روی دایره
         double depth = Math.Min(keywayDepth, radius * 0.5);
 
-        // کمان پایین دایره + سه گوشهٔ مستطیل خار؛ حلقه CCW می‌ماند
+        // کمان پایین دایره + شیار؛ حلقه CCW می‌ماند
         int arcBottom = Math.Max(8, CircleProfile.SegmentsForCircle(radius, chordTol) / 2);
-        var ids = new List<int>(arcBottom + 8);
+        var ids = new List<int>(arcBottom + 12);
         double t = _twists[slice];
         double z = _zs[slice];
         Vector3 V(double ang, double r) => new(r * Math.Cos(ang + t), r * Math.Sin(ang + t), z);
@@ -152,9 +152,31 @@ internal sealed class VertexPool
             ids.Add(_mesh.AddVertex(V(a, radius)));
         }
         ids.Add(_mesh.AddVertex(V(Math.PI - aEdge, radius)));         // لبهٔ چپ روی دایره
-        ids.Add(_mesh.AddVertex(V(Math.PI - aEdge, radius + depth))); // گوشهٔ بیرونی چپ خار
-        ids.Add(_mesh.AddVertex(V(Math.PI, radius + depth)));         // وسط خار
-        ids.Add(_mesh.AddVertex(V(Math.PI + aEdge, radius + depth))); // گوشهٔ بیرونی راست خار
+
+        if (endRadius > 1e-9)
+        {
+            // شیار با ته نیم‌دایره (فرم فرِیزِ انتهایی) — شعاع سقف‌گذاری‌شده
+            double rE = Math.Min(endRadius, halfW);
+            double rCorner = radius + depth - rE; // شعاع مرکز کمان ته
+            int arcSteps = Math.Clamp((int)Math.Ceiling(Math.PI * rE / Math.Max(1e-9, 4.0 * chordTol)), 4, 24);
+
+            ids.Add(_mesh.AddVertex(V(Math.PI - aEdge, rCorner)));      // کنارهٔ چپ عمودی
+            for (int i = 0; i <= arcSteps; i++) // کمان ته از چپ به راست (CCW)
+            {
+                double a = -Math.PI / 2.0 + Math.PI * i / arcSteps; // از −۹۰° به +۹۰° حول مرکز
+                double rr = rCorner + rE * Math.Sin(a);
+                double aa = Math.PI + (rE * Math.Cos(a)) / Math.Max(1e-9, rCorner);
+                ids.Add(_mesh.AddVertex(V(aa, rr)));
+            }
+            ids.Add(_mesh.AddVertex(V(Math.PI + aEdge, rCorner)));    // کنارهٔ راست عمودی
+        }
+        else
+        {
+            ids.Add(_mesh.AddVertex(V(Math.PI - aEdge, radius + depth))); // گوشهٔ بیرونی چپ خار
+            ids.Add(_mesh.AddVertex(V(Math.PI, radius + depth)));         // وسط خار
+            ids.Add(_mesh.AddVertex(V(Math.PI + aEdge, radius + depth))); // گوشهٔ بیرونی راست خار
+        }
+
         ids.Add(_mesh.AddVertex(V(Math.PI + aEdge, radius)));         // لبهٔ راست روی دایره
 
         _rings[key] = ids;
@@ -192,9 +214,8 @@ internal sealed class VertexPool
     // ---------- سازنده‌های وجه با جهت‌گیری صحیح نرمال ----------
 
     /// <summary>
-    /// دیوار بین دو حلقه (احتمالاً ناهم‌تعداد) با «قدم‌زدن ادغامی»:
-    /// هر گام، حلقه‌ای را جلو می‌برد که زاویهٔ بعدی کوچکتری دارد؛ نتیجه مش آب‌بند است.
-    /// CCW حلقه‌ها ⇒ نرمال رو به بیرون ماده.
+    /// دیوار بین دو حلقه (احتمالاً ناهم‌تعداد) با «قدم‌زدن ادغامی» برای سطح داخلی (بور/حفره):
+    /// حلقه‌های CCW یعنی نرمال رو به داخل حفره (بیرون از ماده).
     /// </summary>
     public static void WallCCW(TriMesh mesh, IReadOnlyList<int> lower, IReadOnlyList<int> upper)
     {
@@ -236,6 +257,50 @@ internal sealed class VertexPool
         }
     }
 
+    /// <summary>
+    /// دیوار بین دو حلقه برای سطح بیرونی ماده (دیوارهٔ دندانه، رینگ، توپی).
+    /// حلقه‌های CCW یعنی نرمال رو به بیرون از ماده.
+    /// </summary>
+    public static void WallCCWOuter(TriMesh mesh, IReadOnlyList<int> lower, IReadOnlyList<int> upper)
+    {
+        if (lower.Count < 3 || upper.Count < 3)
+            throw new InvalidOperationException("دیوار به حلقهٔ با کمتر از ۳ رأس ساخته نمی‌شود.");
+        if (lower.Count == upper.Count)
+        {
+            int n = lower.Count;
+            for (int i = 0; i < n; i++)
+            {
+                int j = (i + 1) % n;
+                mesh.AddTriangle(lower[i], lower[j], upper[j]);
+                mesh.AddTriangle(lower[i], upper[j], upper[i]);
+            }
+            return;
+        }
+
+        int li = 0, ui = 0;
+        int total = lower.Count + upper.Count;
+        for (int step = 0; step < total && (li < lower.Count || ui < upper.Count); step++)
+        {
+            double lNext = AngleOf(mesh, lower[(li + 1) % lower.Count]);
+            double uNext = AngleOf(mesh, upper[(ui + 1) % upper.Count]);
+            bool advanceUpper;
+            if (li >= lower.Count) advanceUpper = true;
+            else if (ui >= upper.Count) advanceUpper = false;
+            else advanceUpper = uNext <= lNext;
+
+            if (advanceUpper)
+            {
+                mesh.AddTriangle(lower[li % lower.Count], upper[ui % upper.Count], upper[(ui + 1) % upper.Count]);
+                ui++;
+            }
+            else
+            {
+                mesh.AddTriangle(lower[li % lower.Count], lower[(li + 1) % lower.Count], upper[ui % upper.Count]);
+                li++;
+            }
+        }
+    }
+
     private static double AngleOf(TriMesh mesh, int vertex)
     {
         var v = mesh.VertexAt(vertex);
@@ -264,25 +329,8 @@ internal sealed class VertexPool
         }
     }
 
-    /// <summary>نوار بین دو حلقه (احتمالاً ناهم‌تعداد)؛ CCW ⇒ نرمال +Z.</summary>
+    /// <summary>نوار بین دو حلقه هم‌مرکز؛ CCW یعنی نرمال +Z (روی ماده از بالا).</summary>
     public static void AnnulusZ(TriMesh mesh, IReadOnlyList<int> inner, IReadOnlyList<int> outer)
-    {
-        int n = Math.Min(inner.Count, outer.Count);
-        if (inner.Count != outer.Count)
-        {
-            MergeWalkAnnulus(mesh, inner, outer, flip: false);
-            return;
-        }
-        for (int i = 0; i < n; i++)
-        {
-            int j = (i + 1) % n;
-            mesh.AddTriangle(inner[i], inner[j], outer[j]);
-            mesh.AddTriangle(inner[i], outer[j], outer[i]);
-        }
-    }
-
-    /// <summary>نوار بین دو حلقه؛ CCW ⇒ نرمال −Z.</summary>
-    public static void AnnulusNZ(TriMesh mesh, IReadOnlyList<int> inner, IReadOnlyList<int> outer)
     {
         int n = Math.Min(inner.Count, outer.Count);
         if (inner.Count != outer.Count)
@@ -295,6 +343,23 @@ internal sealed class VertexPool
             int j = (i + 1) % n;
             mesh.AddTriangle(inner[i], outer[i], outer[j]);
             mesh.AddTriangle(inner[i], outer[j], inner[j]);
+        }
+    }
+
+    /// <summary>نوار بین دو حلقه هم‌مرکز؛ CCW یعنی نرمال −Z (زیر ماده).</summary>
+    public static void AnnulusNZ(TriMesh mesh, IReadOnlyList<int> inner, IReadOnlyList<int> outer)
+    {
+        int n = Math.Min(inner.Count, outer.Count);
+        if (inner.Count != outer.Count)
+        {
+            MergeWalkAnnulus(mesh, inner, outer, flip: false);
+            return;
+        }
+        for (int i = 0; i < n; i++)
+        {
+            int j = (i + 1) % n;
+            mesh.AddTriangle(inner[i], inner[j], outer[j]);
+            mesh.AddTriangle(inner[i], outer[j], outer[i]);
         }
     }
 

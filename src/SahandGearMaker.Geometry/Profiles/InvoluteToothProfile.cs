@@ -15,6 +15,7 @@ public readonly struct PolarPoint(double theta, double radius)
 /// <summary>
 /// ژنراتور پروفیل مرزی قطعه‌ها — رابط مشترک همهٔ خانواده‌ها (سند ۰۳، بخش ۴).
 /// مرزها پادساعتگرد (CCW) در صفحهٔ XY تولید می‌شوند تا نرمال مش رو به بیرون باشد.
+/// زاویه‌ها اکیداً صعودی و مرز نسبت به مرکز ستاره‌ای است.
 /// </summary>
 public interface IProfileGenerator
 {
@@ -56,35 +57,38 @@ public sealed class CircleProfile(double radius) : IProfileGenerator
 /// <summary>
 /// پروفیل کامل چرخ‌دندهٔ استوانه‌ای خارجی/داخلی با دندانهٔ involute (سند ۰۳، بخش ۴).
 ///
-/// روابط پایه در صفحهٔ عرضی (transverse):
-///   rb = r·cos(αt)؛ inv(α) = tan α − α
-///   ψ (نیم‌زاویهٔ دندانه روی دایرهٔ پایه) = eb/(2r) + inv(αt)
-///   نقطهٔ اینولوت: θ(t) = center ± (ψ + t − tan t)، ρ(t) = rb·√(1+t²)، t = tan α
+/// روابط دقیق اینولوت با پارامتر t = tan(α) در شعاع جاری:
+///   r(t) = rb·√(1+t²)؛  inv(t) = t − atan(t)
+///   پهلو (خارجی): θ = c ± [eb/(2r) + invA − inv(t)]     ← دندانه به سمت نوک باریک می‌شود
+///   پهلو (داخلی):  θ = c ± [π/z − eb/(2r) − invA + inv(t)] ← دندانهٔ داخلی نیز به سمت نوک باریک می‌شود
+/// که در هر دو حالت θ در جهت پیمایش CCW اکیداً صعودی می‌ماند (مرز ستاره‌ای و بدون خودتقاطع).
 ///
-/// برای چرخ‌دندهٔ داخلی، «دندانهٔ» ماده در واقع فضای خالی برای پینیون است؛
-/// مرز ماده شامل قوس‌های دایرهٔ ریشه (شعاع بزرگ‌تر) و پهلوهای اینولوت فضای خالی است.
+/// برای چرخ‌دندهٔ داخلی، مرزِ ترسیم‌شده «فضای خالی پینیون» است: قوس ریشهٔ بیرونی (rf)
+/// و پهلوهای اینولوت دندانه‌های داخلی که تا دایرهٔ سر (ra) به مرکز نزدیک می‌شوند.
 /// </summary>
 public sealed class InvoluteToothProfile : IProfileGenerator
 {
     private readonly GearGeometryFigures _fig;
     private readonly bool _internal;
     private readonly double _filletRadius;
+    /// <summary>پخ لبهٔ نوک دندانه (mm شعاعی)؛ صفر = بدون پخ.</summary>
+    private readonly double _tipChamfer;
 
-    /// <summary>نیم‌زاویهٔ دندانه (خارجی) یا نیم‌زاویهٔ فضای خالی (داخلی) روی دایرهٔ پایه.</summary>
+    /// <summary>نیم‌زاویهٔ مرجع روی دایرهٔ پایه: بیرونی eb/(2r)+invA؛ داخلی π/z−eb/(2r)+invA.</summary>
     private readonly double _baseHalfAngle;
 
-    /// <summary>پارامتر t (=tan α) در دایرهٔ شروع مرز و دایرهٔ سر.</summary>
-    private readonly double _tMin, _tMax;
-
-    public InvoluteToothProfile(GearGeometryFigures figures, double filletRadius)
+    public InvoluteToothProfile(GearGeometryFigures figures, double filletRadius, double tipChamferMm = 0.0)
     {
         _fig = figures ?? throw new ArgumentNullException(nameof(figures));
         _internal = figures.Family is GearFamily.InternalSpur or GearFamily.InternalHelical;
         _filletRadius = Math.Max(0, filletRadius);
 
+        double radialRoom = Math.Max(0, _fig.TipRadius - Math.Max(_fig.RootRadius, _fig.BaseRadius));
+        _tipChamfer = Math.Max(0, Math.Min(tipChamferMm, radialRoom * 0.45));
+
         double r = _fig.PitchRadius;
         double alphaT = _fig.TransversePressureAngle;
-        double invA = Math.Tan(alphaT) - alphaT;
+        double invA = InvoluteOf(Math.Tan(alphaT));
         double ebPitch = _fig.ToothThicknessAtPitch;
 
         double halfAngleAtPitch = _internal
@@ -92,13 +96,6 @@ public sealed class InvoluteToothProfile : IProfileGenerator
             : ebPitch / (2.0 * r);                                          // نیم‌ضخامت دندانه روی گام
 
         _baseHalfAngle = halfAngleAtPitch + invA;
-
-        double rTip = _fig.TipRadius;
-        double rStart = _internal ? _fig.RootRadius : Math.Max(_fig.BaseRadius, _fig.RootRadius);
-        _tMin = TAtRadius(rStart);
-        _tMax = TAtRadius(rTip);
-        if (_tMax < _tMin + 1e-4)
-            _tMax = _tMin + 0.05; // محافظ ورودی مرزی
     }
 
     public (double, double) RadiusRange()
@@ -106,16 +103,26 @@ public sealed class InvoluteToothProfile : IProfileGenerator
 
     // ---------- روابط اینولوت ----------
 
+    /// <summary>inv(t) = t − atan(t) — تابع اینولوت استاندارد با پارامتر t = tan(α).</summary>
+    private static double InvoluteOf(double t) => t - Math.Atan(t);
+
     private double TAtRadius(double radius)
     {
-        double rb = _fig.BaseRadius;
+        double rb = Math.Max(1e-9, _fig.BaseRadius);
         return Math.Sqrt(Math.Max(0.0, radius * radius / (rb * rb) - 1.0));
     }
 
-    /// <summary>زاویهٔ اینولوت نسبت به مرکز دندانه، مثبت (پهلوی +) — بدون center.</summary>
-    private double InvTheta(double t) => _baseHalfAngle + t - Math.Tan(t);
+    /// <summary>
+    /// نیم‌زاویهٔ دندانه در پارامتر t (فاصلهٔ زاویه‌ای پهلو از محور دندانه).
+    /// خارجی: با رشد t (رفتن به سمت نوک) کوچک می‌شود؛ داخلی: بزرگ می‌شود (دندانهٔ داخلی به سمت مرکز باریک می‌شود).
+    /// </summary>
+    private double HalfAngleAt(double t) => _internal
+        ? Math.PI / Math.Max(1, _fig.ToothCount) - _baseHalfAngle + InvoluteOf(t)
+        : _baseHalfAngle - InvoluteOf(t);
 
-    private double ThetaAtRadius(double radius) => InvTheta(TAtRadius(radius));
+    private double ThetaAtRadius(double radius, int side) => side >= 0
+        ? HalfAngleAt(TAtRadius(radius))
+        : -HalfAngleAt(TAtRadius(radius));
 
     // ---------- ساخت مرز ----------
 
@@ -137,76 +144,102 @@ public sealed class InvoluteToothProfile : IProfileGenerator
         return pts;
     }
 
-    /// <summary>مرز یک دندانهٔ خارجی: ریشهٔ قبلی → فیله → پهلو − → سر → پهلو + → فیله.</summary>
+    /// <summary>مرز یک دندانهٔ خارجی: ریشهٔ قبلی → فیله → پهلو − → [پخ] → سر → [پخ] → پهلو + → فیله.</summary>
     private void AppendExternalTooth(List<PolarPoint> pts, double c, double pitch, double tol)
     {
         double rRoot = _fig.RootRadius;
         double rTip = _fig.TipRadius;
         double rFlankStart = Math.Max(rRoot, _fig.BaseRadius);
 
-        double thetaRootN = c - RootOpeningHalfAngle(pitch);  // لبهٔ ریشهٔ سمت −
+        double thetaRootN = c - RootOpeningHalfAngle(pitch);  // لبهٔ ریشهٔ سمت − (پایان قوس ریشه)
         double thetaRootP = c + RootOpeningHalfAngle(pitch);  // لبهٔ ریشهٔ سمت +
-        double thetaFlankN = c - ThetaAtRadius(rFlankStart);   // پای پهلو در شعاع شروع
-        double thetaFlankP = c + ThetaAtRadius(rFlankStart);
-        double thetaTipN = c - ThetaAtRadius(rTip);
-        double thetaTipP = c + ThetaAtRadius(rTip);
+        double thetaTipN = c - HalfAngleAt(TAtRadius(rTip));
+        double thetaTipP = c + HalfAngleAt(TAtRadius(rTip));
 
         // 1) قوس ریشه از پایان دندانهٔ قبلی تا ابتدای دندانهٔ جاری
         double prevEdge = c - pitch + RootOpeningHalfAngle(pitch);
         AppendArc(pts, prevEdge, thetaRootN, rRoot, tol);
 
-        // 2) فیلهٔ ریشه سمت − (CCW یعنی رو به سمت پهلو)
-        AppendFillet(pts, thetaRootN, thetaFlankN, -1, tol);
+        // 2) فیلهٔ ریشه سمت − : از لبهٔ قوس ریشه تا پای پهلو
+        AppendFillet(pts, thetaRootN, thetaFlankN(c), -1, tol);
 
-        // 3) پهلو سمت − (اینولوت صعودی به سمت سر)
-        AppendFlank(pts, c, -1, rFlankStart, rTip, tol);
+        if (_tipChamfer > 1e-9)
+        {
+            // پخ ۴۵ درجهٔ گوشهٔ نوک: پهلو تا (rTip−c) و بعد لبهٔ مورب تا قوس کوتاه‌شدهٔ سر
+            double rTipEff = rTip - _tipChamfer;
+            double dTheta = _tipChamfer / Math.Max(1e-9, rTip);
 
-        // 4) قوس سر
-        AppendArc(pts, thetaTipN, thetaTipP, rTip, tol);
+            AppendFlank(pts, c, -1, rFlankStart, rTipEff, tol);
+            pts.Add(new PolarPoint(thetaTipN + dTheta, rTip));
+            AppendArc(pts, thetaTipN + dTheta, thetaTipP - dTheta, rTip, tol);
+            pts.Add(new PolarPoint(thetaTipP - dTheta, rTip));
+            AppendFlank(pts, c, +1, rTipEff, rFlankStart, tol);
+        }
+        else
+        {
+            // 3) پهلو سمت − (اینولوت صعودی به سمت سر؛ θ صعودی)
+            AppendFlank(pts, c, -1, rFlankStart, rTip, tol);
 
-        // 5) پهلو سمت + (نزولی به سمت ریشه)
-        AppendFlank(pts, c, +1, rTip, rFlankStart, tol);
+            // 4) قوس سر
+            AppendArc(pts, thetaTipN, thetaTipP, rTip, tol);
+
+            // 5) پهلو سمت + (نزولی به سمت ریشه؛ θ همچنان صعودی — جهت پیمایش حفظ می‌شود)
+            AppendFlank(pts, c, +1, rTip, rFlankStart, tol);
+        }
 
         // 6) فیلهٔ ریشه سمت +
-        AppendFillet(pts, thetaFlankP, thetaRootP, +1, tol);
+        AppendFillet(pts, thetaFlankP(c), thetaRootP, +1, tol);
     }
 
     /// <summary>
-    /// مرز فضای خالی یک دندانهٔ داخلی (که پینیون در آن جا می‌گیرد):
-    /// قوس ریشه (شعاع rf بیرونی) → پهلو اینولوت به سمت سر داخلی → قوس سر (ra) → پهلو بازگشت.
+    /// مرز فضای خالی یک دندانهٔ داخلی (که پینیون در آن جا می‌گیرد) — CCW و اکیداً صعودی:
+    /// قوس ریشهٔ بیرونی (rf) → پهلو − از ریشه به سر → قوس سر داخلی (ra) → پهلو + از سر به ریشه.
     /// </summary>
     private void AppendInternalTooth(List<PolarPoint> pts, double c, double pitch, double tol)
     {
-        double rRoot = _fig.RootRadius; // بیرونی‌ترین ماده
-        double rTip = _fig.TipRadius;   // داخلی‌ترین نقطهٔ فضای خالی
+        double rRoot = _fig.RootRadius;      // بیرونی‌ترین ماده (دایرهٔ ریشهٔ دندانهٔ داخلی)
+        double rTip = _fig.TipRadius;        // داخلی‌ترین نقطهٔ نوک دندانهٔ داخلی
+        double rb = Math.Max(1e-9, _fig.BaseRadius);
 
-        double thetaTipN = c - ThetaAtRadius(rTip);
-        double thetaTipP = c + ThetaAtRadius(rTip);
-        double thetaRootN = c - ThetaAtRadius(rRoot);
-        double thetaRootP = c + ThetaAtRadius(rRoot);
+        // پهلوها فقط برای r ≥ rb تعریف‌اند؛ نوک مؤثر = max(ra, rb)
+        double rTipEff = Math.Max(rTip, rb * 1.0001);
+        double rStart = Math.Max(rRoot, rb * 1.0001);
 
-        // قوس ریشه بین دندانه‌ها (از پهلو + فضای قبلی تا پهلو − فضای جاری)
-        double prevRootP = c - pitch + ThetaAtRadius(rRoot);
+        double thetaRootN = c - HalfAngleAt(TAtRadius(rStart));
+        double thetaRootP = c + HalfAngleAt(TAtRadius(rStart));
+        double thetaTipN = c - HalfAngleAt(TAtRadius(rTipEff));
+        double thetaTipP = c + HalfAngleAt(TAtRadius(rTipEff));
+
+        // قوس ریشه بین دندانه‌ها: از پهلو + دندانهٔ قبلی تا پهلو − دندانهٔ جاری
+        double prevRootP = c - pitch + HalfAngleAt(TAtRadius(rStart));
         AppendArc(pts, prevRootP, thetaRootN, rRoot, tol);
 
-        // پهلو − از ریشه به سر (شعاع کاهش می‌یابد)
-        AppendFlank(pts, c, -1, rRoot, rTip, tol);
-
-        // قوس سر (کوچک‌ترین شعاع؛ خط گلوهٔ فضای خالی)
-        AppendArc(pts, thetaTipN, thetaTipP, rTip, tol);
-
-        // پهلو + از سر به ریشه
-        AppendFlank(pts, c, +1, rTip, rRoot, tol);
+        if (rTipEff < rStart - 1e-9)
+        {
+            // پهلو − از ریشه به سر (شعاع کاهش می‌یابد؛ θ صعودی می‌ماند)
+            AppendFlank(pts, c, -1, rStart, rTipEff, tol);
+            // قوس سر داخلی
+            AppendArc(pts, thetaTipN, thetaTipP, rTipEff, tol);
+            // پهلو + از سر به ریشه
+            AppendFlank(pts, c, +1, rTipEff, rStart, tol);
+        }
+        else
+        {
+            // حالت مرزی: نوک تا پایهٔ مشترک رسیده — فقط قوس ریشه کوتاه
+            AppendArc(pts, thetaRootN, thetaRootP, rStart, tol);
+        }
     }
 
     /// <summary>نیم‌زاویهٔ دهانهٔ ریشه: محل تلاقی مرز ماده با دایرهٔ ریشه خارجی.</summary>
     private double RootOpeningHalfAngle(double pitch)
     {
         double rFlankStart = Math.Max(_fig.RootRadius, _fig.BaseRadius);
-        double flankAtRoot = ThetaAtRadius(rFlankStart);
-        // دهانهٔ ریشه را بین «تلاقی پهلو» و «نیم‌گام» انتخاب می‌کنیم تا فیله جا بگیرد
+        double flankAtRoot = HalfAngleAt(TAtRadius(rFlankStart));
         return flankAtRoot + 0.35 * Math.Max(0, pitch / 2.0 - flankAtRoot);
     }
+
+    private double thetaFlankN(double c) => c - HalfAngleAt(TAtRadius(Math.Max(_fig.RootRadius, _fig.BaseRadius)));
+    private double thetaFlankP(double c) => c + HalfAngleAt(TAtRadius(Math.Max(_fig.RootRadius, _fig.BaseRadius)));
 
     private static void AppendArc(List<PolarPoint> pts, double from, double to, double radius, double tol)
     {
@@ -218,21 +251,34 @@ public sealed class InvoluteToothProfile : IProfileGenerator
             pts.Add(new PolarPoint(from + (to - from) * i / segments, radius));
     }
 
-    /// <summary>پهلو با نمونه‌برداری تطبیقی از t تا خطای وتر ≤ tol (سند ۰۴، بخش ۵).</summary>
+    /// <summary>
+    /// پهلو با نمونه‌برداری تطبیقی از t تا خطای وتر ≤ tol.
+    /// جهت پیمایش t حفظ می‌شود (بدون جابه‌جایی) تا ترتیب CCW مرز در هر دو پهلو برقرار بماند.
+    /// </summary>
     private void AppendFlank(List<PolarPoint> pts, double center, int side, double rFrom, double rTo, double tol)
     {
-        double rb = _fig.BaseRadius;
+        double rb = Math.Max(1e-9, _fig.BaseRadius);
         double tFrom = TAtRadius(rFrom);
         double tTo = TAtRadius(rTo);
-        if (tTo < tFrom) (tFrom, tTo) = (tTo, tFrom);
+        if (tTo < tFrom) (tFrom, tTo) = (tTo, tFrom); // نمونه‌ها همیشه صعودی در t تولید و در صورت نیاز معکوس درج می‌شوند
 
         int steps = InvoluteSteps(rb, tFrom, tTo, tol);
-        for (int i = 0; i <= steps; i++)
+        if (side >= 0)
         {
-            double t = tFrom + (tTo - tFrom) * i / steps;
-            double local = _baseHalfAngle + t - Math.Tan(t);
-            double theta = side >= 0 ? center + local : center - local;
-            pts.Add(new PolarPoint(theta, rb * Math.Sqrt(1.0 + t * t)));
+            // پهلو + : از نوک به ریشه پیمایش می‌شود (t نزولی) تا θ صعودی بماند
+            for (int i = steps; i >= 0; i--)
+            {
+                double t = tFrom + (tTo - tFrom) * i / steps;
+                pts.Add(new PolarPoint(center + HalfAngleAt(t), rb * Math.Sqrt(1.0 + t * t)));
+            }
+        }
+        else
+        {
+            for (int i = 0; i <= steps; i++)
+            {
+                double t = tFrom + (tTo - tFrom) * i / steps;
+                pts.Add(new PolarPoint(center - HalfAngleAt(t), rb * Math.Sqrt(1.0 + t * t)));
+            }
         }
     }
 
@@ -250,7 +296,6 @@ public sealed class InvoluteToothProfile : IProfileGenerator
     /// <summary>
     /// فیلهٔ ریشه به‌صورت کمان دایره‌ای کوچک که دایرهٔ ریشه را به ابتدای پهلو نرم می‌کند.
     /// شعاع مؤثر به نیم فضای زاویه‌ای/شعاعی موجود محدود می‌شود (بدون خودتقاطع).
-    /// side=−1 یعنی پهلو در جهت زاویهٔ کمتر قرار دارد و برعکس.
     /// </summary>
     private void AppendFillet(List<PolarPoint> pts, double thetaRoot, double thetaFlank, int side, double tol)
     {
@@ -264,24 +309,22 @@ public sealed class InvoluteToothProfile : IProfileGenerator
         if (span <= 1e-12)
             return;
 
-        // سقف‌ها: نیم فضای زاویه‌ای، فضای شعاعی ریشه→شروع پهلو و ضریب 0.4 (محافظه‌کارانه)
+        double rFlankR = Math.Max(rRoot, _fig.BaseRadius);
         double fr = Math.Min(_filletRadius,
                      Math.Min(span * rOuter * 0.5,
-                              Math.Max(0, Math.Abs(rFlankRadius() - rRoot)) * 0.5) * 0.8);
+                              Math.Max(0, Math.Abs(rFlankR - rRoot)) * 0.5) * 0.8);
         if (fr <= 1e-9)
             return;
 
-        // مرکز کمان روی شعاع میانه، در عمق fr از دایرهٔ ریشه
-        double dir = side; // جهت حرکت زاویه‌ای از ریشه به پهلو
+        double dir = side;
         double mid = (thetaRoot + thetaFlank) / 2.0;
         double cr = Math.Max(1e-9, rOuter - fr);
         double ca = mid;
 
-        // نقطهٔ شروع روی دایرهٔ ریشه (مماس شعاعی) و پایان نزدیک پپهلو
         double startTheta = ca + dir * Math.Asin(Math.Min(1.0, fr / cr));
         double startR = Math.Sqrt(cr * cr + fr * fr);
         double endTheta = thetaFlank - dir * Math.Min(fr / Math.Max(1e-9, rOuter) * 0.5, span * 0.25);
-        double endR = rFlankRadius();
+        double endR = rFlankR;
 
         int steps = Math.Clamp((int)Math.Ceiling(Math.Abs(endTheta - startTheta) * cr / Math.Max(1e-9, 4.0 * tol)), 2, 16);
         for (int i = 0; i <= steps; i++)
@@ -291,6 +334,4 @@ public sealed class InvoluteToothProfile : IProfileGenerator
             pts.Add(new PolarPoint(a, r));
         }
     }
-
-    private double rFlankRadius() => Math.Max(_fig.RootRadius, _fig.BaseRadius);
 }
