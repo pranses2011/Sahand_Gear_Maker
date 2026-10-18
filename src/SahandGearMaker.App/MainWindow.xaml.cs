@@ -20,6 +20,10 @@ public partial class MainWindow : Window
         InitializeComponent();
         Export = new ExportViewModel(Designer);
 
+        // شمارهٔ نسخه در عنوان پنجره و سربرگ برنامه — منبع واحد AppInfo (MSBuild $(Version))
+        Title = $"طراح چرخ‌دنده سهند — Sahand Gear Designer v{AppInfo.Version}";
+        AppSubtitle.Text = $"Sahand Gear Designer v{AppInfo.Version}";
+
         HomeView.Bind(this);
         DesignerView.Bind(this);
         AssemblyView.Bind(this);

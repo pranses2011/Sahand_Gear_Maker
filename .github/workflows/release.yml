@@ -46,9 +46,12 @@ jobs:
           -p:RuntimeIdentifier=win-x64
 
       - name: Generate real screenshots
-        run: >
-          dotnet run --project src/SahandGearMaker.Screenshots
-          --configuration Release --no-build -- screenshots
+        run: |
+          # ۱) رندرهای موتور (خانواده‌ها + صحنه‌ها)
+          dotnet run --project src/SahandGearMaker.Screenshots --configuration Release --no-build -- screenshots
+          # ۲) کپچر رابط کاربری توسط خود برنامهٔ واقعی (اسمبلی درست منابع WPF)
+          publish/app/SahandGearDesigner.exe --screenshot screenshots
+          Get-ChildItem screenshots/*.png | Select-Object Name, Length
 
       - name: Package portable zip
         shell: pwsh

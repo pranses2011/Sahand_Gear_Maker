@@ -57,7 +57,7 @@ public static class Program
             catch (Exception ex)
             {
                 failed++;
-                Console.WriteLine($"[ناموفق] {fileName}: {ex.Message}");
+                Console.WriteLine($"[ناموفق] {fileName}: {FullChain(ex)}");
             }
         }
 
@@ -129,18 +129,26 @@ public static class Program
         catch (Exception ex) { failed++; Console.WriteLine($"[ناموفق] scene-highlight: {ex.Message}"); }
 
         // ---------- ۳) کپچر رابط کاربری (WPF) ----------
-        try
-        {
-            CaptureUi(Path.Combine(outDir, "ui-main.png"));
-            Console.WriteLine("[موفق] ui-main.png");
-        }
-        catch (Exception ex)
-        {
-            failed++;
-            Console.WriteLine($"[ناموفق] ui-main: {ex.Message}");
-        }
+        // کپچر UI از این پس توسط خود برنامهٔ واقعی انجام می‌شود:
+        //   SahandGearDesigner.exe --screenshot <پوشه>
+        // اجرا داخل اسمبلی درست خود برنامه، خطاهای بارگذاری BAML/منابع نسبی
+        // (DeferredBinaryDeserializerExtension) را از ریشه حذف می‌کند — فاز تثبیت رلیز.
 
+        if (failed == 0) Console.WriteLine("[تمام] همهٔ اسکرین‌شات‌های موتور ساخته شد.");
+        else Console.WriteLine($"[هشدار] {failed} اسکرین‌شات ناموفق بود.");
         return failed == 0 ? 0 : 2;
+    }
+
+    /// <summary>زنجیرهٔ کامل پیام‌های خطا — برای تشخیص دقیق در CI (InnerException ها دیگری پنهان می‌کنند).</summary>
+    private static string FullChain(Exception ex)
+    {
+        var sb = new System.Text.StringBuilder();
+        for (Exception? cur = ex; cur is not null; cur = cur.InnerException)
+        {
+            if (sb.Length > 0) sb.Append(" ← ");
+            sb.Append($"[{cur.GetType().Name}] {cur.Message}");
+        }
+        return sb.ToString();
     }
 
     private static SceneObject MakeObject(string id, TriMesh mesh, string colorHex,
@@ -194,40 +202,5 @@ public static class Program
         using var fs = new FileStream(path, FileMode.Create);
         enc.Save(fs);
         _ = stats;
-    }
-
-    /// <summary>کپچر پنجرهٔ اصلی برنامه با RTB (بدون نمایش روی صفحه).</summary>
-    private static void CaptureUi(string path)
-    {
-        var app = new SahandGearMaker.App.App();
-        app.InitializeComponent(); // بارگذاری منابع App.xaml (فونت وزیرمتن/پالت)
-        app.ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown;
-
-        var window = new SahandGearMaker.App.MainWindow();
-        window.WindowStartupLocation = WindowStartupLocation.Manual;
-        window.Left = 0;
-        window.Top = 0;
-        window.Width = 1360;
-        window.Height = 860;
-        window.Show();
-
-        // پمپ دیسپچر برای چیدمان، binding و رندر + زمان برای رشتهٔ رندر بوم (فاز ۱)
-        for (int i = 0; i < 40; i++)
-        {
-            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Render);
-            window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
-            Thread.Sleep(25);
-        }
-        window.UpdateLayout();
-
-        var rtb = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
-        rtb.Render(window);
-        var enc = new PngBitmapEncoder();
-        enc.Frames.Add(BitmapFrame.Create(rtb));
-        using var fs = new FileStream(path, FileMode.Create);
-        enc.Save(fs);
-
-        window.Close();
-        app.Shutdown();
     }
 }

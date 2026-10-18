@@ -17,7 +17,9 @@
     <ProjectReference Include="..\SahandGearMaker.Domain\SahandGearMaker.Domain.csproj" />
     <ProjectReference Include="..\SahandGearMaker.Math\SahandGearMaker.Math.csproj" />
     <ProjectReference Include="..\SahandGearMaker.Geometry\SahandGearMaker.Geometry.csproj" />
-    <ProjectReference Include="..\SahandGearMaker.App\SahandGearMaker.App.csproj" />
+    <!-- کپچر رابط کاربری اکنون توسط خود برنامهٔ واقعی (پرچم screenshot، ر.ک. App.xaml.cs)
+         انجام می‌شود تا منابع WPF (فونت/استایل/BAML) در اسمبلی ورودی درست خودشان
+         بارگذاری شوند؛ به همین دلیل ارجاع به SahandGearMaker.App از این پروژه حذف شد. -->
     <ProjectReference Include="..\SahandGearMaker.Scene\SahandGearMaker.Scene.csproj" />
   </ItemGroup>
 

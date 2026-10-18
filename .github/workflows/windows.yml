@@ -42,10 +42,13 @@ jobs:
           -c Release -o publish/cli
           -p:SelfContained=false
 
-      - name: Generate real screenshots (software renderer + WPF capture)
-        run: >
-          dotnet run --project src/SahandGearMaker.Screenshots
-          --configuration Release --no-build -- screenshots
+      - name: Generate real screenshots (engine renders + real UI capture)
+        run: |
+          # ۱) رندرهای موتور (خانواده‌ها + صحنه‌ها) — بدون نیاز به UI
+          dotnet run --project src/SahandGearMaker.Screenshots --configuration Release --no-build -- screenshots
+          # ۲) کپچر رابط کاربری توسط خود برنامهٔ واقعی — اسمبلی ورودی درست، بدون خطای BAML بین‌اسمبلی
+          publish/app/SahandGearDesigner.exe --screenshot screenshots
+          Get-ChildItem screenshots/*.png | Select-Object Name, Length
 
       - name: Upload screenshots artifact
         uses: actions/upload-artifact@v4

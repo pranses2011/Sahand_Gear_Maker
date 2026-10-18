@@ -25,7 +25,7 @@
                     <StackPanel>
                         <TextBlock Text="طراح چرخ‌دنده سهند" FontSize="16" FontWeight="Bold"
                                    FontFamily="{StaticResource FontVazirmatnBold}" Foreground="White" />
-                        <TextBlock Text="Sahand Gear Designer" FontSize="11" Foreground="#AAE2E8F0"
+                        <TextBlock x:Name="AppSubtitle" Text="Sahand Gear Designer" FontSize="11" Foreground="#AAE2E8F0"
                                    FlowDirection="LeftToRight" HorizontalAlignment="Right" />
                     </StackPanel>
                 </StackPanel>
