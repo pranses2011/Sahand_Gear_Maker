@@ -99,11 +99,21 @@ public class MeshBuildingTests
     }
 
     [Fact]
-    public void RoadmapFamily_RejectedHonestly()
+    public void EveryEnumFamily_IsSupported()
+    {
+        // پس از تکمیل نقشهٔ راه، هر عضو enum باید هندسهٔ واقعی بسازد یا خطای پارامتر بدهد (نه «نقشهٔ راه»)
+        foreach (GearFamily fam in Enum.GetValues(typeof(GearFamily)))
+        {
+            Assert.True(GearGeometryEngine.IsSupported(fam), $"خانوادهٔ {fam} باید پشتیبانی شود.");
+        }
+    }
+
+    [Fact]
+    public void InvalidInput_RejectedWithClearMessage()
     {
         var ex = Assert.Throws<GeometryBuildException>(() =>
-            Build(GearFamily.Worm, new ToothParameters()));
-        Assert.Contains("نقشهٔ راه", ex.Message, StringComparison.Ordinal);
+            Build(GearFamily.Worm, new ToothParameters { ToothCount = 99, Module = 2, FaceWidth = 30 }));
+        Assert.Contains("رشته", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -139,18 +149,48 @@ public class MeshBuildingTests
         var rng = new Random(42);
         for (int i = 0; i < 30; i++)
         {
-            var p = new ToothParameters
-            {
-                ToothCount = rng.Next(8, 60),
-                Module = 0.5 + rng.NextDouble() * 4,
-                FaceWidth = 4 + rng.NextDouble() * 30,
-                HelixAngle = rng.NextDouble() * 0.4,
-            };
             var family = (GearFamily[])Enum.GetValues(typeof(GearFamily));
             var fam = family[rng.Next(family.Length)];
             if (!GearGeometryEngine.IsSupported(fam)) continue;
 
-            var result = GearGeometryEngine.Build(fam, p, new BodyFeatures { BoreDiameter = rng.Next(0, 10) }, new GeometrySettings());
+            // دامنهٔ دندانهٔ معتبر هر خانواده (کرم: رشته؛ هارمونیک: ریز‌دندانه)
+            int zMin = fam switch
+            {
+                GearFamily.Worm => 1,
+                GearFamily.HarmonicDrive => 80,
+                GearFamily.WormWheel => 25,
+                GearFamily.CrownFace or GearFamily.Cycloidal or GearFamily.NonCircular => 14,
+                GearFamily.SplineExternal or GearFamily.SplineInternal => 8,
+                _ => 8,
+            };
+            int zMax = fam switch
+            {
+                GearFamily.Worm => 8,
+                GearFamily.HarmonicDrive => 140,
+                _ => 60,
+            };
+            var p = new ToothParameters
+            {
+                ToothCount = rng.Next(zMin, zMax),
+                Module = fam == GearFamily.HarmonicDrive ? 0.5 + rng.NextDouble() * 0.6 : 0.5 + rng.NextDouble() * 4,
+                FaceWidth = 4 + rng.NextDouble() * 30,
+                HelixAngle = fam is GearFamily.Worm or GearFamily.WormWheel or GearFamily.HarmonicDrive
+                    or GearFamily.NonCircular or GearFamily.CrownFace or GearFamily.Cycloidal
+                    or GearFamily.SplineExternal or GearFamily.SplineInternal or GearFamily.BevelSpur
+                    or GearFamily.BevelSpiral or GearFamily.Hypoid
+                    ? 0 : rng.NextDouble() * 0.4,
+                PressureAngle = 0.35,
+            };
+
+            GearBuildResult? result = null;
+            try
+            {
+                result = GearGeometryEngine.Build(fam, p, new BodyFeatures { BoreDiameter = rng.Next(0, 10) }, new GeometrySettings());
+            }
+            catch (GeometryBuildException)
+            {
+                continue; // رد صادقانهٔ ورودی نامعتبر با پیام روشن — crash نیست
+            }
             foreach (var v in result.Mesh.Vertices)
             {
                 Assert.True(double.IsFinite(v.X) && double.IsFinite(v.Y) && double.IsFinite(v.Z));

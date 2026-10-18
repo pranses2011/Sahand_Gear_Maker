@@ -20,6 +20,12 @@ public sealed class FamilyParameters
     /// </summary>
     public double WormPitchDiameterMm { get; set; }
 
+    /// <summary>تعدادِ رشته‌های (starts) کرمِ جفت‌شونده — فقط برای ساخت «چرخ کرم» به‌کار می‌رود.</summary>
+    public int WormStartsCount { get; set; } = 1;
+
+    /// <summary>دستِ کرم: راست‌گرد (پیش‌فرض) یا چپ‌گرد؛ جهت پیچش چرخ کرم از آن مشتق می‌شود.</summary>
+    public bool WormIsRightHanded { get; set; } = true;
+
     /// <summary>پاککردن گلوگاه چرخ کرم (mm) — فاصلهٔ آزاد نوک کرم تا ته چرخ. پیش‌فرض ۰٫۲۵m.</summary>
     public double WormThroatClearanceMm { get; set; }
 
@@ -27,6 +33,11 @@ public sealed class FamilyParameters
 
     /// <summary>زاویهٔ بین دو محور جفت مخروطی (رادیان)؛ پیش‌فرض ۹۰ درجه.</summary>
     public double BevelShaftAngle { get; set; }
+
+    /// <summary>
+    /// زاویهٔ نیم‌مخروط گام این قطعه (رادیان). صفر = خودکار (نصف زاویهٔ محورها).
+    /// برای جفت ۹۰ درجه با نسبت u: δ۱ = atan(1/u) و δ۲ = 90° − δ۱.</summary>
+    public double BevelPitchConeAngle { get; set; }
 
     /// <summary>زاویهٔ مارپیچ/قوس دندانهٔ مخروطی مارپیچ (رادیان) در شعاع میانگین؛ صفر = مستقیم.</summary>
     public double BevelSpiralAngle { get; set; }
@@ -48,6 +59,9 @@ public sealed class FamilyParameters
     /// پیش‌فرض: تقریب ۲ برابر ماژول (نسبت مرسوم تغییرشکل موج‌ساز).
     /// </summary>
     public double HarmonicWaveDeflectionMm { get; set; }
+
+    /// <summary>ضخامت دیوارهٔ فنجان فِلکسی‌پلاین (mm). صفر = پیش‌فرض ۱٫۵٪ قطر گام.</summary>
+    public double HarmonicCupWallThicknessMm { get; set; }
 
     // ---------- هزارخار ----------
 

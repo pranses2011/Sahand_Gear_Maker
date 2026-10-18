@@ -21,7 +21,7 @@ public static class PolygonTriangulator
     /// <summary>مثلث‌بندی ناحیهٔ محصور بین حلقهٔ بیرونی و حفره‌ها؛ شاخص‌ها به ترتیب outer سپس holes.</summary>
     public static List<(int A, int B, int C)> Triangulate(
         IReadOnlyList<Point2> outer,
-        IReadOnlyList<IReadOnlyList<Point2>>? holes)
+        IReadOnlyList<IReadOnlyList<Point2>>? holes = null)
     {
         ArgumentNullException.ThrowIfNull(outer);
         if (outer.Count < 3)

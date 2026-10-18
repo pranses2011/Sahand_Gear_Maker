@@ -65,14 +65,27 @@ public static class GearValidator
         }
         else
         {
-            if (p.ToothCount < 5)
+            // حداقل دندانهٔ معتبر وابسته به خانواده است (کرم: تعداد رشته‌ها ۱ تا ۱۲)
+            int minTeeth = family switch
+            {
+                GearFamily.Worm => 1,
+                GearFamily.SplineExternal or GearFamily.SplineInternal => 6,
+                GearFamily.CrownFace or GearFamily.Cycloidal or GearFamily.NonCircular => 12,
+                GearFamily.HarmonicDrive => 60,
+                GearFamily.WormWheel => 20,
+                _ => 5,
+            };
+            int maxTeeth = family is GearFamily.HarmonicDrive ? 720 : 600;
+
+            if (p.ToothCount < minTeeth)
                 list.Add(new(DiagnosticCodes.ToothCountTooLow, Severity.Error,
-                    "تعداد دندانه باید حداقل ۵ باشد.", "ToothCount"));
-            else if (p.ToothCount > 600)
+                    $"تعداد دندانه برای این خانواده باید حداقل {minTeeth} باشد.", "ToothCount"));
+            else if (p.ToothCount > maxTeeth)
                 list.Add(new(DiagnosticCodes.MeshTooHeavy, Severity.Warning,
                     "تعداد دندانهٔ زیاد، مش بسیار سنگینی می‌سازد؛ پیش‌نمایش کند و فایل خروجی حجیم می‌شود.", "ToothCount"));
 
-            if (family is GearFamily.InternalSpur or GearFamily.InternalHelical && p.ToothCount < 18)
+            if (family is GearFamily.InternalSpur or GearFamily.InternalHelical or GearFamily.SplineInternal
+                && p.ToothCount < 18 && family != GearFamily.SplineInternal)
                 list.Add(new(DiagnosticCodes.InternalToothCountInvalid, Severity.Error,
                     "برای چرخ‌دندهٔ داخلی، حداقل تعداد دندانهٔ معقول ۱۸ است (دندانهٔ کمتر ریسک تداخل جدی دارد).", "ToothCount"));
         }

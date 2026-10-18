@@ -19,10 +19,12 @@ public static class RackMeshBuilder
         GearFamily family,
         ToothParameters teeth,
         BodyFeatures bodyParams,
-        GeometrySettings quality)
+        GeometrySettings quality,
+        FamilyParameters? specific = null)
     {
         ArgumentNullException.ThrowIfNull(teeth);
         quality ??= new GeometrySettings();
+        specific ??= new FamilyParameters();
 
         var diags = GearValidator.Validate(family, teeth).ToList();
         var errors = diags.Where(d => d.Severity == Severity.Error).ToList();
@@ -37,7 +39,11 @@ public static class RackMeshBuilder
         // طول شانه: پارامتر مستقل (RackLengthMm)؛ برای سازگاری با پروژه‌های قدیمی،
         // مقدار «شعاع دایرهٔ حفره‌ها» به‌عنوان طول قدیمی خوانده می‌شود (با پیام اطلاع).
         double requestedLength;
-        if (bodyParams.RackLengthMm > 0)
+        if (specific.RackLengthMm > 0)
+        {
+            requestedLength = specific.RackLengthMm;
+        }
+        else if (bodyParams.RackLengthMm > 0)
         {
             requestedLength = bodyParams.RackLengthMm;
         }

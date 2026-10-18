@@ -139,16 +139,23 @@ internal sealed class VertexPool
         double aEdge = Math.Asin(Math.Min(0.999, halfW / radius)); // زاویهٔ لبهٔ خار روی دایره
         double depth = Math.Min(keywayDepth, radius * 0.5);
 
-        // کمان پایین دایره + شیار؛ حلقه CCW می‌ماند
+        // کمان کامل دایره + شیار؛ حلقه CCW می‌ماند
+        // پیمایش: کمان پایین (π+aEdge → 2π−aEdge) + کمان بالا (2π−aEdge → π−aEdge از طریق ۰)
+        //          + لبهٔ چپ + ته شیار + لبهٔ راست — دور کامل بدون نقطهٔ تکراری
         int arcBottom = Math.Max(8, CircleProfile.SegmentsForCircle(radius, chordTol) / 2);
-        var ids = new List<int>(arcBottom + 12);
+        var ids = new List<int>(2 * arcBottom + 12);
         double t = _twists[slice];
         double z = _zs[slice];
         Vector3 V(double ang, double r) => new(r * Math.Cos(ang + t), r * Math.Sin(ang + t), z);
 
-        for (int i = 0; i <= arcBottom; i++) // کمان از (π+aEdge) تا (2π−aEdge)
+        for (int i = 1; i <= arcBottom; i++) // کمان پایین از (π+aEdge) تا (2π−aEdge)
         {
             double a = Math.PI + aEdge + (Math.PI - 2.0 * aEdge) * i / arcBottom;
+            ids.Add(_mesh.AddVertex(V(a, radius)));
+        }
+        for (int i = 1; i < arcBottom; i++) // کمان بالا از (2π−aEdge) تا پیش از (π−aEdge)
+        {
+            double a = 2.0 * Math.PI - aEdge + Math.PI * i / arcBottom;
             ids.Add(_mesh.AddVertex(V(a, radius)));
         }
         ids.Add(_mesh.AddVertex(V(Math.PI - aEdge, radius)));         // لبهٔ چپ روی دایره
@@ -209,7 +216,7 @@ internal sealed class VertexPool
     public int Free(int slice, double x, double y)
         => _mesh.AddVertex(new Vector3(x, y, _zs[slice]));
 
-    public IReadOnlyList<int> ProfileLoop(int slice) => _profileIndices[slice];
+    public List<int> ProfileLoop(int slice) => _profileIndices[slice];
 
     // ---------- سازنده‌های وجه با جهت‌گیری صحیح نرمال ----------
 
@@ -344,6 +351,132 @@ internal sealed class VertexPool
             mesh.AddTriangle(inner[i], outer[i], outer[j]);
             mesh.AddTriangle(inner[i], outer[j], inner[j]);
         }
+    }
+
+    /// <summary>
+    /// درپوش صفحه‌ای بین مرز پروفیل (بیرونی)، بور و توپی (اختیاری).
+    /// بور↔پروفیل: مثلث‌بندی تک‌حفره (الگوی امن سازندهٔ استوانه‌ای؛ پروفیل شیارخار‌دار مجاز).
+    /// توپی↔پروفیل: قدم‌زدن ادغامی زاویه‌ای (هر دو حلقهٔ صعودی زاویه‌ای).
+    /// بدون بور: بادبزک از مرکز (پروفیل ستاره‌ای).
+    /// </summary>
+    internal static void AnnulusCap(
+        TriMesh mesh, IReadOnlyList<int> profileLoop, IReadOnlyList<int>? boreLoop,
+        IReadOnlyList<int>? middleLoop, bool negativeZ)
+    {
+        var outer = DedupLoop(mesh, profileLoop);
+        if (outer.Count < 3)
+            return;
+
+        if (boreLoop is not { Count: > 2 })
+        {
+            if (middleLoop is { Count: > 2 })
+            {
+                // بدون بور، با توپی: درپوش = نوار توپی ↔ پروفیل (بور از داخل توپی مستقیم عبور می‌کند)
+                var mid0 = DedupLoop(mesh, middleLoop);
+                if (negativeZ)
+                    AnnulusNZ(mesh, mid0, outer);
+                else
+                    AnnulusZ(mesh, mid0, outer);
+                return;
+            }
+            double z = mesh.VertexAt(outer[0]).Z;
+            var center = mesh.AddVertex(new Vector3(0, 0, z));
+            if (negativeZ)
+                DiskNZ(mesh, outer, center);
+            else
+                DiskZ(mesh, outer, center);
+            return;
+        }
+
+        var bore = DedupLoop(mesh, boreLoop);
+        var boreHole = new List<Point2>(bore.Count);
+        var boreIdxRev = new List<int>(bore.Count);
+        for (int i = bore.Count - 1; i >= 0; i--)
+        {
+            var v = mesh.VertexAt(bore[i]);
+            boreHole.Add(new Point2(v.X, v.Y));
+            boreIdxRev.Add(bore[i]);
+        }
+
+        if (middleLoop is { Count: > 2 })
+        {
+            var mid = DedupLoop(mesh, middleLoop);
+
+            // توپی ↔ پروفیل: قدم‌زدن ادغامی
+            if (negativeZ)
+                AnnulusNZ(mesh, mid, outer);
+            else
+                AnnulusZ(mesh, mid, outer);
+
+            // بور ↔ توپی: مثلث‌بندی تک‌حفره
+            var hubPts = new List<Point2>(mid.Count);
+            foreach (int idx in mid)
+            {
+                var v = mesh.VertexAt(idx);
+                hubPts.Add(new Point2(v.X, v.Y));
+            }
+            var tris = PolygonTriangulator.Triangulate(hubPts, new List<List<Point2>> { boreHole });
+            int hubCount = hubPts.Count;
+            foreach (var (a, b, c) in tris)
+            {
+                int ia = a < hubCount ? mid[a] : boreIdxRev[a - hubCount];
+                int ib = b < hubCount ? mid[b] : boreIdxRev[b - hubCount];
+                int ic = c < hubCount ? mid[c] : boreIdxRev[c - hubCount];
+                if (negativeZ)
+                    mesh.AddTriangle(ia, ic, ib);
+                else
+                    mesh.AddTriangle(ia, ib, ic);
+            }
+        }
+        else
+        {
+            // بور ↔ پروفیل: مثلث‌بندی تک‌حفره
+            var profPts = new List<Point2>(outer.Count);
+            foreach (int idx in outer)
+            {
+                var v = mesh.VertexAt(idx);
+                profPts.Add(new Point2(v.X, v.Y));
+            }
+            var tris = PolygonTriangulator.Triangulate(profPts, new List<List<Point2>> { boreHole });
+            int profCount = profPts.Count;
+            foreach (var (a, b, c) in tris)
+            {
+                int ia = a < profCount ? outer[a] : boreIdxRev[a - profCount];
+                int ib = b < profCount ? outer[b] : boreIdxRev[b - profCount];
+                int ic = c < profCount ? outer[c] : boreIdxRev[c - profCount];
+                if (negativeZ)
+                    mesh.AddTriangle(ia, ic, ib);
+                else
+                    mesh.AddTriangle(ia, ib, ic);
+            }
+        }
+    }
+
+    /// <summary>حذف رئوس متوالی هم‌مکان از یک حلقه (نگاشت ایندکس حفظ می‌شود).</summary>
+    internal static List<int> DedupLoop(TriMesh mesh, IReadOnlyList<int> loop)
+    {
+        var result = new List<int>(loop.Count);
+        foreach (int idx in loop)
+        {
+            if (result.Count > 0)
+            {
+                var a = mesh.VertexAt(result[^1]);
+                var b = mesh.VertexAt(idx);
+                if (Math.Abs(a.X - b.X) < 1e-9 && Math.Abs(a.Y - b.Y) < 1e-9)
+                    continue;
+            }
+            result.Add(idx);
+        }
+        while (result.Count > 1)
+        {
+            var a = mesh.VertexAt(result[0]);
+            var b = mesh.VertexAt(result[^1]);
+            if (Math.Abs(a.X - b.X) < 1e-9 && Math.Abs(a.Y - b.Y) < 1e-9)
+                result.RemoveAt(result.Count - 1);
+            else
+                break;
+        }
+        return result;
     }
 
     /// <summary>نوار بین دو حلقه هم‌مرکز؛ CCW یعنی نرمال −Z (زیر ماده).</summary>

@@ -37,7 +37,8 @@ public static class CylindricalGearMeshBuilder
         GearFamily family,
         ToothParameters teeth,
         BodyFeatures body,
-        GeometrySettings quality)
+        GeometrySettings quality,
+        bool cycloidal = false)
     {
         ArgumentNullException.ThrowIfNull(teeth);
         ArgumentNullException.ThrowIfNull(body);
@@ -55,10 +56,15 @@ public static class CylindricalGearMeshBuilder
 
         // داخلی هم پروفیل دندانه‌دار می‌گیرد: مرز «فضای خالی پینیون» = مرز داخلی مادهٔ رینگ
         double tipChamfer = internalGear ? 0.0 : body.TipChamferMm;
-        var profileGen = new InvoluteToothProfile(fig, fig.RootFilletRadius, tipChamfer);
+        IProfileGenerator profileGen = cycloidal
+            ? new CycloidalToothProfile(fig, fig.RootFilletRadius)
+            : new InvoluteToothProfile(fig, fig.RootFilletRadius, tipChamfer);
         var boundary = CleanBoundary(profileGen.BoundaryPoints(tol));
         if (boundary.Count < 8)
             throw new GeometryBuildException("پروفیل تولیدشده نقاط کافی ندارد.", errors);
+        if (cycloidal)
+            diags.Add(new GearDiagnostic("SGM-I530", Severity.Info,
+                "پروفیل سیکلوئیدی (اپیسایکلوئید سر + هیپوسایکلوئید ریشه) با دایرهٔ مولّد نصف‌شعاع گام؛ متداول در ساعت‌سازی و ابزار دقیق.", "ProfileSystem"));
         if (tipChamfer > 1e-9)
             diags.Add(new GearDiagnostic("SGM-I402", Severity.Info,
                 $"پخ {Math.Min(tipChamfer, 0.45 * (fig.TipRadius - Math.Max(fig.RootRadius, fig.BaseRadius))):F2} میلی‌متری نوک دندانه اعمال شد.", "TipChamferMm"));
@@ -96,7 +102,7 @@ public static class CylindricalGearMeshBuilder
     /// حذف نقاط تکراری متوالی (و تکراری ابتدا/انتها) از مرز — قبل از ساخت هر حلقه‌ای انجام می‌شود
     /// تا برش‌ها، دیواره‌ها و درپوش‌ها همه از یک فهرست رأس مشترک استفاده کنند (آب‌بندی مش).
     /// </summary>
-    private static List<PolarPoint> CleanBoundary(List<PolarPoint> raw)
+    internal static List<PolarPoint> CleanBoundary(List<PolarPoint> raw)
     {
         var result = new List<PolarPoint>(raw.Count);
         foreach (var p in raw)
