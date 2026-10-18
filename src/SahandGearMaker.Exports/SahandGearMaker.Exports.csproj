@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <RootNamespace>SahandGearMaker.Exports</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SahandGearMaker.Domain\SahandGearMaker.Domain.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Geometry\SahandGearMaker.Geometry.csproj" />
+  </ItemGroup>
+
+</Project>
