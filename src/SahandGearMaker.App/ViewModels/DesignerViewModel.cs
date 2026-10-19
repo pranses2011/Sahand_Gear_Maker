@@ -413,7 +413,12 @@ public partial class DesignerViewModel : ObservableObject
     {
         Diagnostics.Clear();
         foreach (var p in _project.Parts.ToList())
+        {
+            // نرمال‌سازی پارامترهای خارج از دامنه (پروژه‌های ذخیره‌شدهٔ قدیمی/دستی) — نسخهٔ ۰٫۵
+            foreach (var msg in GearFamilyDefaults.Normalize(p))
+                Diagnostics.Add(new DiagnosticViewModel { Severity = Severity.Info, Code = "SGM-I460", Message = $"{p.Name}: {msg}" });
             RebuildPartNow(p);
+        }
     }
 
     private void UpdateSceneObject(GearPart part, TriMesh mesh)

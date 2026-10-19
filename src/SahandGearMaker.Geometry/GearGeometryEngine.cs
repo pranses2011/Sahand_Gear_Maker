@@ -46,7 +46,7 @@ public static class GearGeometryEngine
                     $"خانوادهٔ {family} پشتیبانی نمی‌شود.", "Family") });
         }
 
-        return family switch
+        var result = family switch
         {
             GearFamily.Rack or GearFamily.HelicalRack => RackMeshBuilder.Build(family, teeth, body, quality, specific),
             GearFamily.BevelSpur or GearFamily.BevelSpiral or GearFamily.Hypoid
@@ -62,6 +62,12 @@ public static class GearGeometryEngine
             GearFamily.CrossedHelical => CylindricalGearMeshBuilder.Build(GearFamily.ExternalHelical, teeth, body, quality),
             _ => CylindricalGearMeshBuilder.Build(family, teeth, body, quality),
         };
+
+        // تضمین جهت‌گیری یکنواخت نرمال‌ها (نسخهٔ ۰٫۵ — رفع مش ناقص/راه‌راه در مخروطی/شانه/تاجی/هارمونیک).
+        // سازنده‌های قدیمی گاهی مثلث‌هایی را با چرخش معکوس منتشر می‌کردند؛ این passo همهٔ خروجی‌ها را
+        // به‌صورت سازگار و رو به بیرون درمی‌آورد تا backface-culling رندرر و خروجی STL سالم باشند.
+        result.Mesh.NormalizeOrientation();
+        return result;
     }
 
     /// <summary>

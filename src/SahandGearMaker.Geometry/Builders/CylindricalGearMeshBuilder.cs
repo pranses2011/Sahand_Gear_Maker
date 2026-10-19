@@ -252,20 +252,22 @@ public static class CylindricalGearMeshBuilder
 
             if (gap <= 1e-9)
             {
-                // جناغی پیوسته: پیچش صفر در وسط، مثبت در نیمهٔ پایین و منفی در نیمهٔ بالا
+                // جناغی پیوسته (نسخهٔ اصلاح‌شدهٔ ۰٫۵ — رفع «بالا و پایین جفت نیستند»):
+                // پیچش در دو سر صفر و در صفحهٔ میانی بیشینه است — نیمهٔ پایین +k·z و نیمهٔ بالا
+                // آینهٔ آن +k·(w−z)؛ بنابراین در مفصل پیوسته است و وجه بالا دقیقاً روی وجه زیرین می‌نشیند.
                 int n = AdaptiveSliceCount(leadFactor, half, b.Fig.TipRadius, b.Tol, Math.Clamp(q.AxialSliceCount, 4, 200));
                 b.Pool.AddSlice(0.0, 0);
                 for (int i = 1; i <= n; i++)
                     b.Pool.AddSlice(leadFactor * (half * i / n), half * i / n);
                 for (int i = 1; i <= n; i++)
                 {
-                    double zLocal = half * i / n;
-                    b.Pool.AddSlice(-leadFactor * zLocal, half + zLocal);
+                    double z = half + half * i / n;
+                    b.Pool.AddSlice(leadFactor * (w - z), z); // آینه: از +k·half در مفصل به صفر در سطح بالا
                 }
                 return;
             }
 
-            // جناغی با گپ مرکزی: [0, g1] دندانهٔ +، (g1, g2) شیار استوانه‌ای در دایرهٔ ریشه، [g2, w] دندانهٔ −
+            // جناغی با گپ مرکزی: [0, g1] دندانهٔ +، (g1, g2) شیار استوانه‌ای در دایرهٔ ریشه، [g2, w] دندانهٔ آینه
             double g1 = half - gap / 2.0, g2 = half + gap / 2.0;
             int nLower = AdaptiveSliceCount(leadFactor, g1, b.Fig.TipRadius, b.Tol, Math.Clamp(q.AxialSliceCount, 4, 200));
             int nUpper = AdaptiveSliceCount(leadFactor, w - g2, b.Fig.TipRadius, b.Tol, Math.Clamp(q.AxialSliceCount, 4, 200));
@@ -275,12 +277,13 @@ public static class CylindricalGearMeshBuilder
                 b.Pool.AddSlice(leadFactor * (g1 * i / nLower), g1 * i / nLower);
             gapStart = b.Pool.SliceCount - 1;
 
-            b.Pool.AddSlice(-leadFactor * (g2 - half), g2);
+            // مرز بالای گپ: ادامهٔ الگوی نیمهٔ پایین (+k·g1) تا دندانه‌های دو سمت گپ جفت بمانند
+            b.Pool.AddSlice(leadFactor * (w - g2), g2);
             gapEnd = b.Pool.SliceCount - 1;
             for (int i = 1; i <= nUpper; i++)
             {
                 double z = g2 + (w - g2) * i / nUpper;
-                b.Pool.AddSlice(-leadFactor * (z - half), z);
+                b.Pool.AddSlice(leadFactor * (w - z), z); // آینه به سمت صفر در سطح بالا
             }
             return;
         }

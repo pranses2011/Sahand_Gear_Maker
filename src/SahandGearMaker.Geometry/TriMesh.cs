@@ -36,6 +36,19 @@ public sealed class TriMesh
         _triangles.Add(new Triangle(a, b, c));
     }
 
+    /// <summary>جایگزینی مثلث i با جهت جدید (برای یکسان‌سازی جهت‌گیری نرمال‌ها).</summary>
+    public void SetTriangle(int i, int a, int b, int c)
+    {
+        if ((uint)i >= (uint)_triangles.Count)
+            throw new ArgumentOutOfRangeException(nameof(i));
+        if ((uint)a >= (uint)_vertices.Count || (uint)b >= (uint)_vertices.Count || (uint)c >= (uint)_vertices.Count)
+            throw new ArgumentOutOfRangeException("ایندکس مثلث خارج از محدودهٔ رئوس است.");
+        _triangles[i] = new Triangle(a, b, c);
+    }
+
+    /// <summary>یکسان‌سازی جهت‌گیری مثلث‌ها (سازگار + رو به بیرون) — برای رندر و خروجی چاپ سالم.</summary>
+    public MeshOrientationReport NormalizeOrientation() => MeshOrientationFixer.Orient(this);
+
     public void AddMesh(TriMesh other, Vector3 offset = default, double rotateZ = 0.0, double scale = 1.0)
     {
         ArgumentNullException.ThrowIfNull(other);

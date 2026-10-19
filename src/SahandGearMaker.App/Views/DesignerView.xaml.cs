@@ -212,6 +212,15 @@ public partial class DesignerView : UserControl
             VM.PushUndo();
             p.Family = fam;
             FamilyNote.Text = CapabilityNote(fam);
+
+            // نرمال‌سازی پارامترها برای دامنهٔ خانوادهٔ جدید (رفع «کرم ساخته نمی‌شود» — نسخهٔ ۰٫۵)
+            var changes = GearFamilyDefaults.Normalize(p);
+            foreach (var msg in changes)
+                VM.Diagnostics.Add(new DiagnosticViewModel { Severity = Severity.Info, Code = "SGM-I460", Message = msg });
+            if (changes.Count > 0)
+                _main.SetStatus($"خانواده تغییر کرد — {changes.Count} پارامتر به دامنهٔ معتبر اصلاح شد (پیام‌ها را ببینید).");
+
+            SyncFromPart(); // فیلدها ممکن است توسط نرمال‌سازی تغییر کرده باشند
             VM.RebuildPartNow(p);
             RefreshScene();
         }
@@ -272,8 +281,9 @@ public partial class DesignerView : UserControl
                 Add("RackLength", "طول شانه (mm)", Fmt(spec.RackLengthMm == 0 ? 120 : spec.RackLengthMm));
                 break;
             case GearFamily.Worm:
-                Add("WormPitchDia", "قطر گام کرم (mm)", Fmt(spec.WormPitchDiameterMm == 0 ? 40 : spec.WormPitchDiameterMm));
-                Add("WormStarts", "تعداد ورودی‌ها", spec.WormStartsCount.ToString());
+                // «تعداد رشته‌ها» همان تعداد دندانهٔ کرم است (BuildWorm از ToothCount می‌خواند)
+                Add("WormStartsTeeth", "تعداد رشته‌ها (استارت)", p.Teeth.ToothCount.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                Add("WormPitchDia", "قطر گام کرم (mm)", Fmt(spec.WormPitchDiameterMm == 0 ? 20 * p.Teeth.Module : spec.WormPitchDiameterMm));
                 Add("WormHand", "دست (1=راست، -1=چپ)", spec.WormIsRightHanded ? "1" : "-1");
                 Add("WormThroat", "خلأ گلوگاه (mm)", Fmt(spec.WormThroatClearanceMm));
                 break;
@@ -330,11 +340,19 @@ public partial class DesignerView : UserControl
                 spec.RackLengthMm = D("RackLength", 120);
                 break;
             case GearFamily.Worm:
-                spec.WormPitchDiameterMm = D("WormPitchDia", 40);
-                spec.WormStartsCount = Math.Clamp(I("WormStarts", 1), 1, 12);
+            {
+                if (int.TryParse(V("WormStartsTeeth"), System.Globalization.NumberStyles.Integer,
+                        System.Globalization.CultureInfo.InvariantCulture, out var starts) && starts is >= 1 and <= 12)
+                {
+                    if (p.Teeth.ToothCount != starts)
+                        p.Teeth.ToothCount = starts;
+                    spec.WormStartsCount = starts; // هم‌زمان‌سازی برای ویزارد چرخ کرم
+                }
+                spec.WormPitchDiameterMm = D("WormPitchDia", 0);
                 spec.WormIsRightHanded = I("WormHand", 1) >= 0;
                 spec.WormThroatClearanceMm = D("WormThroat", 0);
                 break;
+            }
             case GearFamily.WormWheel:
                 spec.WormPitchDiameterMm = D("WormPitchDia", 40);
                 spec.WormStartsCount = Math.Clamp(I("WormStarts", 1), 1, 12);
