@@ -49,6 +49,44 @@ public sealed class TriMesh
     /// <summary>یکسان‌سازی جهت‌گیری مثلث‌ها (سازگار + رو به بیرون) — برای رندر و خروجی چاپ سالم.</summary>
     public MeshOrientationReport NormalizeOrientation() => MeshOrientationFixer.Orient(this);
 
+    /// <summary>جایگزینی موقعیت رأس i (برای چرخش/بهینه‌سازی چاپ).</summary>
+    public void SetVertex(int i, Vector3 v)
+    {
+        if ((uint)i >= (uint)_vertices.Count)
+            throw new ArgumentOutOfRangeException(nameof(i));
+        _vertices[i] = v;
+    }
+
+    /// <summary>جایگزینی کامل فهرست مثلث‌ها (برای حذف یکنواخت‌ها).</summary>
+    public void ReplaceTriangles(List<Triangle> triangles)
+    {
+        ArgumentNullException.ThrowIfNull(triangles);
+        _triangles.Clear();
+        _triangles.AddRange(triangles);
+    }
+
+    /// <summary>بازسازی مش با رئوس جوش‌خورده و بازنگاشت ایندکس مثلث‌ها (بهینه‌سازی چاپ).</summary>
+    public void RebuildWith(List<Vector3> vertices, int[] indexRemap)
+    {
+        ArgumentNullException.ThrowIfNull(vertices);
+        ArgumentNullException.ThrowIfNull(indexRemap);
+        if (indexRemap.Length != _vertices.Count)
+            throw new ArgumentException("طول بازنگاشت باید با تعداد رئوس فعلی برابر باشد.", nameof(indexRemap));
+
+        var remapped = new List<Triangle>(_triangles.Count);
+        foreach (var t in _triangles)
+        {
+            int a = indexRemap[t.A], b = indexRemap[t.B], c = indexRemap[t.C];
+            if (a == b || b == c || a == c)
+                continue; // مثلثی که با جوش به نقطه فرو می‌ریزد
+            remapped.Add(new Triangle(a, b, c));
+        }
+        _vertices.Clear();
+        _vertices.AddRange(vertices);
+        _triangles.Clear();
+        _triangles.AddRange(remapped);
+    }
+
     public void AddMesh(TriMesh other, Vector3 offset = default, double rotateZ = 0.0, double scale = 1.0)
     {
         ArgumentNullException.ThrowIfNull(other);

@@ -56,8 +56,11 @@ public class Phase0StabilizationTests
         Assert.Equal(CapabilityStatus.Implemented, byKey["DXF"]);
         Assert.Equal(CapabilityStatus.Implemented, byKey["SVG"]);
         // و قول‌های صادقانهٔ هنوز‌پیاده‌نشده:
-        Assert.Equal(CapabilityStatus.Roadmap, byKey["STEP"]);
-        Assert.Equal(CapabilityStatus.Roadmap, byKey["IGES"]);
+        Assert.Equal(CapabilityStatus.Roadmap, byKey["VRML"]);
+        Assert.Equal(CapabilityStatus.Roadmap, byKey["FBX"]);
+        // STEP/IGES از نسخهٔ ۰٫۵ با هستهٔ CAD داخلی پیاده شدند:
+        Assert.Equal(CapabilityStatus.Implemented, byKey["STEP"]);
+        Assert.Equal(CapabilityStatus.Implemented, byKey["IGES"]);
     }
 
     // ---------- ۰٫۳: صادرکننده‌های تازه‌فعال واقعاً کار می‌کنند ----------

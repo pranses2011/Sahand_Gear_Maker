@@ -26,7 +26,7 @@ public sealed class GearBuildResult
 ///   - چرخ‌دندهٔ داخلی به‌صورت «رینگ با دندانهٔ داخلی» ساخته می‌شود (ماده بین مرز دندانه و قطر بیرونی رینگ)؛
 ///   - گپ مرکزی جناغی، پخ بور و پخ نوک دندانه اختیاری‌اند و آب‌بندی مش حفظ می‌شود.
 /// </summary>
-public static class CylindricalGearMeshBuilder
+public static partial class CylindricalGearMeshBuilder
 {
     private const string BoreRing = "bore";
     private const string RimRing = "rim";
@@ -728,5 +728,202 @@ public sealed class GeometryBuildException : Exception
         : base(message)
     {
         Diagnostics = diagnostics;
+    }
+}
+
+// ═══════════ استخراج منبع CAD (نسخهٔ ۰٫۵ — هستهٔ CAD) ═══════════
+
+public static partial class CylindricalGearMeshBuilder
+{
+    /// <summary>
+    /// استخراج دادهٔ منبع منشوری برای هستهٔ CAD — همان محاسبهٔ Build اما با جمع‌آوری حلقه‌ها به‌جای مش.
+    /// خروجی با سازندهٔ مش هم‌ارز است (پروفیل، برش‌ها، بور، حفره‌ها، توپی، گپ جناغی).
+    /// </summary>
+    public static PrismaticCadSource ExtractCadSource(GearPart part, GearBuildResult buildResult)
+    {
+        ArgumentNullException.ThrowIfNull(part);
+        ArgumentNullException.ThrowIfNull(buildResult);
+
+        var teeth = part.Teeth;
+        var body = part.Body;
+        bool internalGear = part.Family is GearFamily.InternalSpur or GearFamily.InternalHelical;
+        bool cycloidal = part.Family == GearFamily.Cycloidal || teeth.ProfileSystem == ProfileSystem.Cycloidal;
+
+        var fig = buildResult.Figures;
+        double tol = Math.Clamp(part.GeometrySettings.ProfileToleranceMm, 0.002, 1.0);
+
+        IProfileGenerator profileGen = cycloidal
+            ? new CycloidalToothProfile(fig, fig.RootFilletRadius)
+            : new InvoluteToothProfile(fig, fig.RootFilletRadius, body.TipChamferMm);
+        var boundary = CleanBoundary(profileGen.BoundaryPoints(tol));
+
+        // شانهٔ برش‌ها — همان BuildSlices اما فقط z/twist جمع می‌شود
+        double w = teeth.FaceWidth;
+        double leadFactor = Math.Tan(fig.HelixAngleUsed) / Math.Max(1e-9, fig.PitchRadius);
+        var zs = new List<(double Twist, double Z)>();
+        double gapZ0 = -1, gapZ1 = -1;
+
+        if (part.Family == GearFamily.ExternalHerringbone)
+        {
+            double half = w / 2.0;
+            double gap = Math.Clamp(body.HerringboneCentralGapMm, 0, Math.Max(0, w * 0.6));
+            int n = Math.Clamp(Math.Max(part.GeometrySettings.AxialSliceCount, 4), 4, 200);
+            if (gap <= 1e-9)
+            {
+                zs.Add((0.0, 0));
+                for (int i = 1; i <= n; i++)
+                    zs.Add((leadFactor * (half * i / n), half * i / n));
+                for (int i = 1; i <= n; i++)
+                {
+                    double z = half + half * i / n;
+                    zs.Add((leadFactor * (w - z), z));
+                }
+            }
+            else
+            {
+                double g1 = half - gap / 2.0, g2 = half + gap / 2.0;
+                zs.Add((0.0, 0));
+                for (int i = 1; i <= n; i++)
+                    zs.Add((leadFactor * (g1 * i / n), g1 * i / n));
+                gapZ0 = g1;
+                zs.Add((leadFactor * (w - g2), g2));
+                gapZ1 = g2;
+                for (int i = 1; i <= n; i++)
+                {
+                    double z = g2 + (w - g2) * i / n;
+                    zs.Add((leadFactor * (w - z), z));
+                }
+            }
+        }
+        else if (Math.Abs(fig.HelixAngleUsed) > 1e-9)
+        {
+            double totalTwist = Math.Abs(leadFactor) * w;
+            double dPsiMax = Math.Sqrt(Math.Max(1e-12, 8.0 * tol / Math.Max(fig.TipRadius, 1e-6)));
+            int n = Math.Clamp(Math.Max((int)Math.Ceiling(totalTwist / dPsiMax), Math.Min(part.GeometrySettings.AxialSliceCount, 64)), 2, 400);
+            for (int i = 0; i <= n; i++)
+                zs.Add((leadFactor * (w * i / n), w * i / n));
+        }
+        else
+        {
+            zs.Add((0, 0));
+            zs.Add((0, w));
+        }
+
+        // حلقه‌های پروفیل (پیچش اعمال‌شده)
+        var rings = new List<CadProfileRing>();
+        foreach (var (twist, z) in zs)
+        {
+            var pts = new List<Vector3>(boundary.Count);
+            foreach (var p in boundary)
+            {
+                double a = p.Theta + twist;
+                pts.Add(new Vector3(p.Radius * Math.Cos(a), p.Radius * Math.Sin(a), z));
+            }
+            rings.Add(new CadProfileRing { Z = z, Twist = twist, Points = pts });
+        }
+
+        // شعاع‌ها — همان ComputeRadii
+        double rootRadiusUsed = Math.Max(fig.RootRadius, fig.BaseRadius);
+        double rimOuter = 0;
+        double boreRadius = 0;
+        List<Point2>? boreSection = null;
+        var effBore = BoreSection.EffectiveShape(body);
+
+        if (internalGear)
+        {
+            rootRadiusUsed = Math.Max(fig.RootRadius, fig.TipRadius);
+            rimOuter = rootRadiusUsed + Math.Max(0.25 * teeth.Module, 1.0);
+            double requested = 0.5 * body.BoreDiameter;
+            if (requested > rimOuter)
+                rimOuter = requested;
+        }
+        else
+        {
+            double bore = 0.5 * body.BoreDiameter;
+            double extra = effBore == BoreShapeType.Spline
+                ? Math.Max(0.05, Math.Min(body.BoreSplineDepthMm, bore * 0.5))
+                : 0.0;
+            if (bore + extra >= rootRadiusUsed * 0.98)
+                bore = Math.Max(1.0, 0.5 * rootRadiusUsed - extra);
+            boreRadius = bore;
+            if (effBore != BoreShapeType.Round && bore > 1e-9)
+                boreSection = BoreSection.Build(body, bore, tol);
+        }
+
+        // حفره‌های سبک‌سازی — همان LighteningHoleCenters
+        var centers = new List<(double, double)>();
+        var lightSection = new List<Point2>();
+        if (body.LighteningHoleCount > 0 && body.LighteningHoleDiameter > 0)
+        {
+            double rHole = LighteningSection.MaxHalfExtent(body.LighteningHoleShape, body.LighteningHoleDiameter);
+            double rIn, rOut;
+            if (internalGear)
+            {
+                rIn = rootRadiusUsed + rHole + 0.2 * teeth.Module;
+                rOut = rimOuter - rHole - 0.2 * teeth.Module;
+            }
+            else
+            {
+                double minBoundary = boundary.Min(p => p.Radius);
+                rOut = Math.Min(minBoundary, rootRadiusUsed) - rHole - 0.5 * teeth.Module;
+                rIn = boreRadius > 1e-9
+                    ? boreRadius + rHole + Math.Max(0.4 * teeth.Module, 1.0)
+                    : rHole + 0.5 * teeth.Module;
+                bool hasHub = !internalGear && body.HubDiameter > 0 && body.HubDiameter / 2.0 > boreRadius && body.HubLength > 0;
+                if (hasHub)
+                    rIn = Math.Max(rIn, body.HubDiameter / 2.0 + rHole + 0.3 * teeth.Module);
+            }
+            if (rOut > rIn + 1e-9)
+            {
+                double rCircle = body.LighteningHoleCircleRadius <= 0 ? (rIn + rOut) / 2.0 : body.LighteningHoleCircleRadius;
+                rCircle = Math.Clamp(rCircle, rIn, rOut);
+                for (int h = 0; h < body.LighteningHoleCount; h++)
+                {
+                    double a = 2.0 * Math.PI * h / body.LighteningHoleCount;
+                    centers.Add((rCircle * Math.Cos(a), rCircle * Math.Sin(a)));
+                }
+                lightSection = LighteningSection.Build(body.LighteningHoleShape, body.LighteningHoleDiameter, tol);
+            }
+        }
+
+        double hubOuter = 0, hubZ0 = 0, hubZ1 = 0;
+        bool hasHubReal = !internalGear && body.HubDiameter > 0 && body.HubDiameter / 2.0 > boreRadius
+            && body.HubLength > 0 && body.HubDiameter / 2.0 < rootRadiusUsed;
+        if (hasHubReal)
+        {
+            hubOuter = body.HubDiameter / 2.0;
+            hubZ0 = w;
+            hubZ1 = w + body.HubLength;
+        }
+
+        double gapRadius = 0;
+        if (gapZ0 > 0)
+            gapRadius = boundary.Min(p => p.Radius);
+
+        var source = new PrismaticCadSource
+        {
+            Family = part.Family,
+            Figures = fig,
+            Z0 = 0,
+            Z1 = w,
+            BoreSection = boreSection,
+            BoreRadius = boreRadius,
+            EffectiveBore = effBore,
+            Internal = internalGear,
+            RimOuterRadius = rimOuter,
+            HubOuterRadius = hubOuter,
+            HubZ0 = hubZ0,
+            HubZ1 = hubZ1,
+            LighteningCenters = centers,
+            LighteningSection = lightSection,
+            LighteningRotationRad = UnitConverter.DegToRad(body.LighteningHoleRotationDeg),
+            LighteningFollowTwist = body.LighteningHoleFollowTwist,
+            GapZ0 = gapZ0,
+            GapZ1 = gapZ1,
+            GapRadius = gapRadius,
+            RootRadiusUsed = rootRadiusUsed,
+        };
+        source.Rings.AddRange(rings);
+        return source;
     }
 }

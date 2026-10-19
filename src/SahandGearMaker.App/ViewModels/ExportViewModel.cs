@@ -81,14 +81,14 @@ public partial class ExportViewModel : ObservableObject
             "پروفیل مقطع برای CAD دوبعدی — نه B-rep سه‌بعدی",
             "پروفیل مقطع مرزی دندانه را به‌صورت خط بستهٔ دوبعدی می‌نویسد. برای برش لیزری/وایر و ترسیم در AutoCAD مناسب است؛ جسم سه‌بعدی نیست.",
             "*.dxf", "برش لیزری — CAD دوبعدی"),
-        new("STEP", "STEP", "STEP AP242", false,
-            "نقشهٔ راه — نیازمند هستهٔ CAD؛ مش به‌عنوان B-rep ارائه نمی‌شود",
-            "استاندارد تبادل B-rep دقیق CAD. تولید صادقانهٔ STEP نیازمند هستهٔ مدلسازی مرحله‌به‌مرحله است و مش مثلثی قابل تبدیل مستقیم نیست؛ در نقشهٔ راه پروژه است.",
-            "*.step", "نقشهٔ راه"),
-        new("IGES", "IGES", "IGES", false,
-            "نقشهٔ راه",
-            "استاندارد قدیمی‌تر تبادل CAD؛ جایگزین STEP در نظر گرفته شده و پیاده‌سازی آن هم‌زمان با STEP در نقشهٔ راه است.",
-            "*.igs", "نقشهٔ راه"),
+        new("STEP", "STEP", "STEP AP214 (B-rep تحلیلی)", true,
+            "هستهٔ CAD داخلی — سطوح صفحه/استوانه، نه مش",
+            "استاندارد جهانی تبادل CAD با هستهٔ داخلی سهند: چرخ‌دنده‌های استوانه‌ای با سطوح تحلیلی (PLANE/CYLINDRICAL_SURFACE) و بور/حفره‌های دقیق صادر می‌شوند؛ خانواده‌های منحنی (کرم/مخروطی/…) به‌صورت وجه‌های صفحه‌ای ارائه می‌شوند. در SolidWorks/FreeCAD/Fusion/Onshape باز می‌شود.",
+            "*.step", "مهندسی و تبادل CAD"),
+        new("IGES", "IGES", "IGES 5.3 (B-rep)", true,
+            "هستهٔ CAD داخلی — سطوح تحلیلی",
+            "استاندارد کلاسیک تبادل CAD (نسخهٔ 5.3) با همان هستهٔ داخلی: هر وجه به‌صورت سطح بریده (Type 144) روی صفحه/استوانه. برای نرم‌افزارهای قدیمی‌تر که STEP ندارند.",
+            "*.igs", "مهندسی — سامانه‌های قدیمی"),
     };
 
     [ObservableProperty]
@@ -103,6 +103,21 @@ public partial class ExportViewModel : ObservableObject
     /// <summary>محدودهٔ خروجی: قطعهٔ انتخابی / مونتاژ تجمیعی / هر قطعه جدا.</summary>
     [ObservableProperty]
     private ExportScope _scope = ExportScope.SelectedPart;
+
+    /// <summary>بهینه‌سازی برای چاپ سه‌بعدی (ایراد ۱۸) — فعال/غیرفعال.</summary>
+    [ObservableProperty]
+    private bool _printOptimize;
+
+    /// <summary>جهت چاپ: 0 = محور عمودی (پیش‌فرض)، 1 = محور افقی (دندانه‌های محکم‌تر).</summary>
+    [ObservableProperty]
+    private int _printOrientation = 0;
+
+    /// <summary>چگالی ماده (g/cm³) برای برآورد جرم — پیش‌فرض PLA.</summary>
+    [ObservableProperty]
+    private double _printDensity = 1.24;
+
+    /// <summary>گزارش آخرین بهینه‌سازی چاپ.</summary>
+    public PrintOptimizationReport? LastPrintReport { get; private set; }
 
     [ObservableProperty]
     private string _statusText = string.Empty;
@@ -176,6 +191,8 @@ public partial class ExportViewModel : ObservableObject
                 "3MF" => "3MF|*.3mf",
                 "AMF" => "AMF|*.amf",
                 "DXF" => "DXF پروفیل|*.dxf",
+                "STEP" => "STEP AP214|*.step;*.stp",
+                "IGES" => "IGES 5.3|*.igs;*.iges",
                 _ => "همهٔ فایل‌ها|*.*",
             },
             FileName = MeshExporter.SanitizeName(Scope switch
@@ -206,6 +223,15 @@ public partial class ExportViewModel : ObservableObject
         try
         {
             var part = _designer.SelectedPart;
+
+            // ---- فرمت‌های هستهٔ CAD (STEP/IGES) — مسیر تحلیلی جدا ----
+            if (SelectedFormat.Id is "STEP" or "IGES")
+            {
+                var cadResult = ExportCad(dlg.FileName, settings, sw);
+                IsBusy = false;
+                return;
+            }
+
             ExportReport result;
             if (Scope == ExportScope.MergedAssembly)
             {
@@ -294,7 +320,35 @@ public partial class ExportViewModel : ObservableObject
 
     /// <summary>نوشتن مش با فرمت انتخابی — یک نقطهٔ مشترک برای همهٔ محدوده‌ها.</summary>
     private ExportReport ExportMesh(TriMesh mesh, string path, MeshExportSettings settings, string? name)
-        => SelectedFormat!.Id switch
+    {
+        // بهینه‌سازی چاپ روی یک کپی — مش صحنه هرگز تغییر نمی‌کند
+        if (PrintOptimize)
+        {
+            var copy = mesh.Transformed(MathX.Vector3.Zero, 0.0);
+            var report = PrintPreparation.Prepare(copy, new PrintOptimizationOptions
+            {
+                Enabled = true,
+                LayFlatVertical = PrintOrientation == 0,
+                LayFlatHorizontal = PrintOrientation == 1,
+                DensityGCm3 = PrintDensity,
+            });
+            LastPrintReport = report;
+            Report.Add($"بهینه‌سازی چاپ: آب‌بند {(report.Watertight ? "✓" : "✗")}، نرمال رو-بیرون {(report.OutwardNormals ? "✓" : "✗")}، " +
+                       $"حجم {report.VolumeMm3 / 1000.0:F1} cm³، جرم ≈ {report.MassGrams:F0} g ({PrintDensity:0.##} g/cm³)، " +
+                       $"ابعاد {report.SizeMm.X:0.##}×{report.SizeMm.Y:0.##}×{report.SizeMm.Z:0.##} mm");
+            Report.Add($"جهت چاپ: {report.OrientationNote}");
+            if (report.DegenerateRemoved > 0 || report.VerticesWelded > 0)
+                Report.Add($"پاک‌سازی: {report.DegenerateRemoved} مثلث یکنواخت حذف، {report.VerticesWelded} رأس جوش");
+            foreach (var w in report.Warnings)
+                Report.Add($"هشدار چاپ: {w}");
+            mesh = copy;
+        }
+        else
+        {
+            LastPrintReport = null;
+        }
+
+        return SelectedFormat!.Id switch
         {
             "STL-BINARY" => MeshExporter.ExportStlBinary(mesh, path, settings),
             "STL-ASCII" => MeshExporter.ExportStlAscii(mesh, path, settings),
@@ -306,6 +360,85 @@ public partial class ExportViewModel : ObservableObject
             "DXF" => WrapContainer(() => ExportDxfProfile(mesh, path), "DXF", path, mesh, settings),
             _ => throw new InvalidOperationException("فرمت ناشناخته"),
         };
+    }
+
+    // ---------- مسیر خروجی هستهٔ CAD (STEP/IGES) ----------
+
+    /// <summary>
+    /// خروجی STEP/IGES با هستهٔ CAD داخلی — B-rep تحلیلی برای خانواده‌های منشوری و
+    /// وجه‌های صفحه‌ای برای بقیه؛ محدوده‌های قطعه/مونتاژ/جدا پشتیبانی می‌شوند.
+    /// </summary>
+    private object ExportCad(string path, MeshExportSettings settings, Stopwatch sw)
+    {
+        bool isStep = SelectedFormat!.Id == "STEP";
+        var solids = new List<SahandGearMaker.Cad.CadSolid>();
+
+        try
+        {
+            if (Scope == ExportScope.SelectedPart)
+            {
+                var part = _designer.SelectedPart!;
+                var build = BuildForExport(part, _designer.LastBuild!, settings);
+                var (solid, rep) = SahandGearMaker.Cad.CadPartBuilder.Build(part, build);
+                solids.Add(solid);
+                Report.Add($"راهبرد: {rep.Strategy} — {rep.FaceCount:N0} وجه تحلیلی");
+                foreach (var n in rep.Notes)
+                    Report.Add(n);
+            }
+            else
+            {
+                foreach (var (p, b) in _designer.BuildableParts())
+                {
+                    var build = BuildForExport(p, b, settings);
+                    var (solid, _) = SahandGearMaker.Cad.CadPartBuilder.Build(p, build);
+                    solids.Add(SahandGearMaker.Cad.CadTransform.Transformed(
+                        solid, p.Placement.X, p.Placement.Y, p.Placement.Z,
+                        p.Placement.Theta, p.Placement.Scale <= 0 ? 1.0 : p.Placement.Scale));
+                }
+                if (Scope == ExportScope.EachPart)
+                {
+                    // هر قطعه فایل جدا
+                    string dir = System.IO.Path.GetDirectoryName(path)!;
+                    string stem = System.IO.Path.GetFileNameWithoutExtension(path);
+                    string ext = System.IO.Path.GetExtension(path);
+                    int ok = 0;
+                    for (int i = 0; i < solids.Count; i++)
+                    {
+                        string file = System.IO.Path.Combine(dir, $"{stem}-{MeshExporter.SanitizeName(solids[i].Name)}{ext}");
+                        if (isStep)
+                            SahandGearMaker.Cad.CadFile.WriteStep(solids[i], file);
+                        else
+                            SahandGearMaker.Cad.CadFile.WriteIges(solids[i], file);
+                        Report.Add($"✓ {solids[i].Name} → {System.IO.Path.GetFileName(file)}");
+                        ok++;
+                    }
+                    StatusText = $"خروجی CAD جدا برای {ok} قطعه نوشته شد.";
+                    Report.Insert(0, $"فرمت: {SelectedFormat.Id}");
+                    Report.Add($"زمان: {sw.Elapsed.TotalMilliseconds:F0} میلی‌ثانیه");
+                    return true;
+                }
+                Report.Add($"مونتاژ: {solids.Count} جامد با جای‌گذاری صحنه در یک فایل");
+            }
+
+            var cadReport = isStep
+                ? SahandGearMaker.Cad.CadFile.WriteStep2(solids, path)
+                : SahandGearMaker.Cad.CadFile.WriteIges2(solids, path);
+
+            Report.Insert(0, $"فرمت: {SelectedFormat.Id}");
+            Report.Add($"فایل: {path}");
+            Report.Add($"وجوه تحلیلی: {cadReport.FaceCount:N0}");
+            Report.Add($"نوع هندسه: B-rep دقیق (سطوح تحلیلی — نه مش مثلثی)");
+            Report.Add($"زمان: {sw.Elapsed.TotalMilliseconds:F0} میلی‌ثانیه");
+            StatusText = $"خروجی {SelectedFormat.Title} با هستهٔ CAD نوشته شد.";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"خروجی CAD ناموفق: {ex.Message}";
+            Report.Add($"خطا: {ex.Message}");
+            return false;
+        }
+    }
 
     // ---------- پوشش صادرکننده‌های بدون گزارش برای یکنواختی UI (فاز ۰٫۳) ----------
 

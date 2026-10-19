@@ -80,6 +80,37 @@ public partial class ExportView : UserControl
         _vm.UnitIndex = UnitCombo.SelectedIndex;
     }
 
+    // ---------- بهینه‌سازی چاپ سه‌بعدی (ایراد ۱۸) ----------
+
+    private void PrintOptimize_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_vm is null) return;
+        bool on = PrintOptimizeCheck.IsChecked == true;
+        _vm.PrintOptimize = on;
+        PrintOrientationCombo.IsEnabled = on;
+        PrintDensityBox.IsEnabled = on;
+    }
+
+    private void PrintOrientation_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_vm is null) return;
+        _vm.PrintOrientation = PrintOrientationCombo.SelectedIndex;
+    }
+
+    private void PrintDensity_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_vm is null) return;
+        if (double.TryParse(PrintDensityBox.Text, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var d) && d is > 0.05 and < 25)
+        {
+            _vm.PrintDensity = d;
+        }
+        else
+        {
+            PrintDensityBox.Text = _vm.PrintDensity.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+        }
+    }
+
     private void Export_Click(object sender, RoutedEventArgs e)
     {
         if (_vm is null) return;

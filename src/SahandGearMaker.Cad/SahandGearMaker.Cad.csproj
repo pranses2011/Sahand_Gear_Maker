@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>SahandGearMaker.Cad</RootNamespace>
+    <Description>هستهٔ CAD سهند — مدل BREP و نگارنده‌های STEP (AP214) و IGES 5.3</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SahandGearMaker.Domain\SahandGearMaker.Domain.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Geometry\SahandGearMaker.Geometry.csproj" />
+    <ProjectReference Include="..\SahandGearMaker.Math\SahandGearMaker.Math.csproj" />
+  </ItemGroup>
+</Project>

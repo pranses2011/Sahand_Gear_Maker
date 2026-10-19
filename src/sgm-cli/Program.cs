@@ -72,12 +72,13 @@ public static class Program
 
         // ---------- export ----------
         var projArg = new Argument<string>("پروژه", "مسیر فایل .sgdproj");
-        var formatOpt = new Option<string>("--format", () => "stl", "قالب: stl|stla|obj|ply|glb|3mf|amf");
+        var formatOpt = new Option<string>("--format", () => "stl", "قالب: stl|stla|obj|ply|glb|3mf|amf|step|iges");
         var dirOpt = new Option<string>("--outdir", () => ".", "پوشهٔ خروجی");
         var tolOpt = new Option<double>("--tol", () => 0.02, "تلرانس وتر (mm)");
+        var printOpt = new Option<bool>("--print-optimize", () => false, "بهینه‌سازی برای چاپ سه‌بعدی (جهت نرمال/جوش/حذف یکنواخت + گزارش)");
 
-        var exportCmd = new Command("export", "خروجی همهٔ قطعات پروژه") { projArg, formatOpt, dirOpt, tolOpt };
-        exportCmd.SetHandler((projPath, format, outdir, tol) =>
+        var exportCmd = new Command("export", "خروجی همهٔ قطعات پروژه") { projArg, formatOpt, dirOpt, tolOpt, printOpt };
+        exportCmd.SetHandler((projPath, format, outdir, tol, printOptimize) =>
         {
             if (!File.Exists(projPath))
             {
@@ -86,11 +87,40 @@ public static class Program
                 return;
             }
             var project = ProjectFile.Load(projPath);
+
+            // فرمت‌های هستهٔ CAD — مسیر تحلیلی جدا (B-rep، نه مش)
+            if (format.ToLowerInvariant() is "step" or "iges")
+            {
+                int ok = 0;
+                foreach (var part in project.Parts)
+                {
+                    var result = GearGeometryEngine.BuildPart(part);
+                    var (solid, rep) = SahandGearMaker.Cad.CadPartBuilder.Build(part, result);
+                    string file = Path.Combine(outdir, Sanitize(part.Name) + (format.ToLowerInvariant() == "step" ? ".step" : ".igs"));
+                    if (format.ToLowerInvariant() == "step")
+                        SahandGearMaker.Cad.CadFile.WriteStep(solid, file);
+                    else
+                        SahandGearMaker.Cad.CadFile.WriteIges(solid, file);
+                    Console.WriteLine($"  [موفق] {file} — {rep.Strategy}، {rep.FaceCount:N0} وجه");
+                    ok++;
+                }
+                Console.WriteLine($"خلاصه: {ok} قطعه با هستهٔ CAD صادر شد");
+                Environment.ExitCode = ok > 0 ? 0 : 2;
+                return;
+            }
+
             var items = new List<(string, TriMesh)>();
             foreach (var part in project.Parts)
             {
                 var result = GearGeometryEngine.BuildPart(part);
-                items.Add((Sanitize(part.Name), result.Mesh));
+                var mesh = result.Mesh;
+                if (printOptimize)
+                {
+                    mesh = mesh.Transformed(new MathX.Vector3(0, 0, 0), 0);
+                    var report = SahandGearMaker.Exports.PrintPreparation.Prepare(mesh, new SahandGearMaker.Exports.PrintOptimizationOptions { Enabled = true });
+                    Console.WriteLine($"  [چاپ] {part.Name}: آب‌بند {(report.Watertight ? "بله" : "خیر")}، جرم ≈ {report.MassGrams:F1}g، حجم {report.VolumeMm3 / 1000.0:F1}cm³، ابعاد {report.SizeMm.X:0.#}×{report.SizeMm.Y:0.#}×{report.SizeMm.Z:0.#}mm");
+                }
+                items.Add((Sanitize(part.Name), mesh));
             }
 
             var fmt = format.ToLowerInvariant() switch
@@ -106,7 +136,7 @@ public static class Program
             };
             if (fmt is null)
             {
-                Console.Error.WriteLine($"قالب نامعتبر: {format} (معتبر: stl|stla|obj|ply|glb|3mf|amf)");
+                Console.Error.WriteLine($"قالب نامعتبر: {format} (معتبر: stl|stla|obj|ply|glb|3mf|amf|step|iges)");
                 Environment.ExitCode = 1;
                 return;
             }
@@ -121,7 +151,7 @@ public static class Program
                     : $"  [ناموفق] {r.FilePath}: {r.Error}");
             Console.WriteLine($"خلاصه: {batch.Succeeded} موفق، {batch.Failed} ناموفق");
             Environment.ExitCode = batch.Failed == 0 ? 0 : 2;
-        }, projArg, formatOpt, dirOpt, tolOpt);
+        }, projArg, formatOpt, dirOpt, tolOpt, printOpt);
 
         // ---------- drawing ----------
         var drawCmd = new Command("drawing", "نقشهٔ فنی SVG/PDF قطعهٔ اول پروژه") { projArg, dirOpt };

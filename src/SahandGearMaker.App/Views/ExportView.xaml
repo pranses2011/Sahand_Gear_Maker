@@ -124,6 +124,21 @@
                 </StackPanel>
             </GroupBox>
 
+            <!-- ═══ گام ۴ — بهینه‌سازی چاپ سه‌بعدی (ایراد ۱۸) ═══ -->
+            <GroupBox Header="گام ۴ — بهینه‌سازی برای چاپ سه‌بعدی" Margin="0,10,0,0">
+                <StackPanel>
+                    <CheckBox x:Name="PrintOptimizeCheck" Content="خروجی بهینه‌شده برای چاپ بده (چسباندن رئوس، حذف یکنواخت‌ها، جهت نرمال، گزارش حجم/جرم)"
+                              Checked="PrintOptimize_Changed" Unchecked="PrintOptimize_Changed" Margin="0,2,0,6" FlowDirection="RightToLeft" />
+                    <TextBlock x:Name="PrintOrientationLabel" Text="جهت چاپ" Style="{StaticResource MutedText}" Margin="0,2,0,4" />
+                    <ComboBox x:Name="PrintOrientationCombo" SelectionChanged="PrintOrientation_SelectionChanged" HorizontalAlignment="Left" Width="240" SelectedIndex="0" IsEnabled="False">
+                        <ComboBoxItem Content="محور عمودی — سطح تخت روی میز (بور دقیق)" />
+                        <ComboBoxItem Content="محور افقی — دندانه‌های محکم‌تر" />
+                    </ComboBox>
+                    <TextBlock x:Name="PrintDensityLabel" Text="چگالی ماده برای برآورد جرم (g/cm³ — PLA: 1.24، ABS: 1.04، PETG: 1.27، فولاد: 7.85)" Style="{StaticResource MutedText}" Margin="0,6,0,4" TextWrapping="Wrap" />
+                    <TextBox x:Name="PrintDensityBox" LostFocus="PrintDensity_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,4" IsEnabled="False" Text="1.24" />
+                </StackPanel>
+            </GroupBox>
+
             <Button Content="خروجی بگیر…" Click="Export_Click" HorizontalAlignment="Left"
                     Padding="24,10" Margin="0,12,0,4" />
 
