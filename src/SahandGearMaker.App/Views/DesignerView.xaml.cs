@@ -181,6 +181,8 @@ public partial class DesignerView : UserControl
                 PlaceY.Text = Fmt(p.Placement.Y);
                 PlaceZ.Text = Fmt(p.Placement.Z);
                 PlaceTheta.Text = Fmt(UnitConverter.RadToDeg(p.Placement.Theta));
+                PlaceThetaX.Text = Fmt(UnitConverter.RadToDeg(p.Placement.ThetaX));
+                PlaceThetaY.Text = Fmt(UnitConverter.RadToDeg(p.Placement.ThetaY));
                 PlaceScale.Text = Fmt(p.Placement.Scale);
                 PlaceOpacity.Text = Fmt(p.DisplayOpacity);
 
@@ -642,7 +644,9 @@ public partial class DesignerView : UserControl
             ParseDouble(PlaceY.Text, p.Placement.Y),
             ParseDouble(PlaceZ.Text, p.Placement.Z),
             ParseDouble(PlaceTheta.Text, UnitConverter.RadToDeg(p.Placement.Theta)),
-            ParseDouble(PlaceScale.Text, p.Placement.Scale));
+            ParseDouble(PlaceScale.Text, p.Placement.Scale),
+            ParseDouble(PlaceThetaX.Text, UnitConverter.RadToDeg(p.Placement.ThetaX)),
+            ParseDouble(PlaceThetaY.Text, UnitConverter.RadToDeg(p.Placement.ThetaY)));
         if (double.TryParse(PlaceOpacity.Text, System.Globalization.NumberStyles.Float,
             System.Globalization.CultureInfo.InvariantCulture, out var op))
             VM.SetPartOpacity(p, op);

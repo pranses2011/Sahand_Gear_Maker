@@ -241,10 +241,12 @@ public partial class ExportViewModel : ObservableObject
                 foreach (var (p, b) in _designer.BuildableParts())
                 {
                     var mesh = BuildForExport(p, b, settings).Mesh;
-                    merged.AddMesh(mesh,
+                    merged.AddMeshFull(mesh,
                         new MathX.Vector3(p.Placement.X, p.Placement.Y, p.Placement.Z),
                         p.Placement.Theta,
-                        p.Placement.Scale <= 0 ? 1.0 : p.Placement.Scale);
+                        p.Placement.Scale <= 0 ? 1.0 : p.Placement.Scale,
+                        p.Placement.ThetaX,
+                        p.Placement.ThetaY);
                     parts++;
                 }
                 Report.Add($"تجمیع {parts} قطعه با جای‌گذاری صحنه (مونتاژ)");

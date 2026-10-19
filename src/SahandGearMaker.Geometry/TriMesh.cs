@@ -88,16 +88,38 @@ public sealed class TriMesh
     }
 
     public void AddMesh(TriMesh other, Vector3 offset = default, double rotateZ = 0.0, double scale = 1.0)
+        => AddMeshFull(other, offset, rotateZ, scale, 0.0, 0.0);
+
+    /// <summary>
+    /// افزودن مش دیگر با تبدیل کامل جای‌گذاری: مقیاس ∘ چرخش Z (اسپین) ∘ چرخش Y ∘ چرخش X ∘ جابه‌جایی —
+    /// هم‌ارز ObjectTransform صحنه (نسخهٔ ۰٫۵ — مونتاژ سه‌بعدی کرم/مخروطی در خروجی تجمیعی).
+    /// </summary>
+    public void AddMeshFull(TriMesh other, Vector3 offset, double rotateZ, double scale, double rotateX, double rotateY)
     {
         ArgumentNullException.ThrowIfNull(other);
         if (scale <= 0 || !double.IsFinite(scale))
             scale = 1.0;
         int baseIndex = _vertices.Count;
         bool uniform = scale == 1.0;
+        bool plain = rotateZ == 0 && rotateX == 0 && rotateY == 0;
+        double cz = Math.Cos(rotateZ), sz = Math.Sin(rotateZ);
+        double cy = Math.Cos(rotateY), sy = Math.Sin(rotateY);
+        double cx = Math.Cos(rotateX), sx = Math.Sin(rotateX);
         foreach (var v in other._vertices)
         {
             var u = uniform ? v : v * scale;
-            _vertices.Add(rotateZ == 0 ? u + offset : u.RotateZ(rotateZ) + offset);
+            if (plain)
+            {
+                _vertices.Add(u + offset);
+                continue;
+            }
+            // Rz
+            double x = u.X * cz - u.Y * sz, y = u.X * sz + u.Y * cz, z = u.Z;
+            // Ry
+            (x, z) = (x * cy + z * sy, -x * sy + z * cy);
+            // Rx
+            (y, z) = (y * cx - z * sx, y * sx + z * cx);
+            _vertices.Add(new Vector3(x + offset.X, y + offset.Y, z + offset.Z));
         }
         foreach (var t in other._triangles)
             _triangles.Add(new Triangle(baseIndex + t.A, baseIndex + t.B, baseIndex + t.C));

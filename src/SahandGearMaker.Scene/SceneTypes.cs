@@ -32,30 +32,64 @@ public readonly record struct Rgb(byte R, byte G, byte B)
 }
 
 /// <summary>تبدیل شیئ: جابه‌جایی + چرخش حول Z + مقیاس یکنواخت (فاز ۱C — کنترل‌های شیئ).</summary>
-public readonly record struct ObjectTransform(Vector3 Position, double RotationZRad, double Scale = 1.0)
+public readonly record struct ObjectTransform(
+    Vector3 Position,
+    double RotationZRad,
+    double Scale = 1.0,
+    double RotationXRad = 0.0,
+    double RotationYRad = 0.0)
 {
     public static readonly ObjectTransform Identity = new(Vector3.Zero, 0.0, 1.0);
 
+    /// <summary>
+    /// اعمال تبدیل: جابه‌جایی ∘ چرخش X ∘ چرخش Y ∘ چرخش Z ∘ مقیاس.
+    /// ترتیب عمدی است: RotationZ همیشه «اسپینِ قطعه حول محور خودش» است و Rx/Ry جهت محور را
+    /// تنظیم می‌کنند (مونتاژ کرم/مخروطی — نسخهٔ ۰٫۵).
+    /// </summary>
     public Vector3 Apply(Vector3 p)
     {
-        double c = Math.Cos(RotationZRad), s = Math.Sin(RotationZRad);
-        double x = p.X * c - p.Y * s, y = p.X * s + p.Y * c;
-        return new Vector3(Position.X + x * Scale, Position.Y + y * Scale, Position.Z + p.Z * Scale);
+        // مقیاس
+        double x = p.X * Scale, y = p.Y * Scale, z = p.Z * Scale;
+        // Rz (اسپین محلی)
+        double cz = Math.Cos(RotationZRad), sz = Math.Sin(RotationZRad);
+        (x, y) = (x * cz - y * sz, x * sz + y * cz);
+        // Ry (جهت محور — مثلاً Z→X برای چرخ کرم)
+        double cy = Math.Cos(RotationYRad), sy = Math.Sin(RotationYRad);
+        (x, z) = (x * cy + z * sy, -x * sy + z * cy);
+        // Rx
+        double cx = Math.Cos(RotationXRad), sx = Math.Sin(RotationXRad);
+        (y, z) = (y * cx - z * sx, y * sx + z * cx);
+        return new Vector3(Position.X + x, Position.Y + y, Position.Z + z);
     }
 
-    /// <summary>نرمال تحت تبدیل — چرخش جهت را می‌چرخاند؛ مقیاس یکنواخت تغییری نمی‌دهد.</summary>
+    /// <summary>نرمال تحت تبدیل — چرخش جهت؛ مقیاس یکنواخت جهت را تغییر نمی‌دهد.</summary>
     public Vector3 ApplyNormal(Vector3 n)
     {
-        double c = Math.Cos(RotationZRad), s = Math.Sin(RotationZRad);
-        return new Vector3(n.X * c - n.Y * s, n.X * s + n.Y * c, n.Z);
+        double x = n.X, y = n.Y, z = n.Z;
+        double cz = Math.Cos(RotationZRad), sz = Math.Sin(RotationZRad);
+        (x, y) = (x * cz - y * sz, x * sz + y * cz);
+        double cy = Math.Cos(RotationYRad), sy = Math.Sin(RotationYRad);
+        (x, z) = (x * cy + z * sy, -x * sy + z * cy);
+        double cx = Math.Cos(RotationXRad), sx = Math.Sin(RotationXRad);
+        (y, z) = (y * cx - z * sx, y * sx + z * cx);
+        return new Vector3(x, y, z);
     }
 
     public (Vector3 Min, Vector3 Max) TransformBounds((Vector3 Min, Vector3 Max) b)
     {
-        var a = Apply(b.Min);
-        var z = Apply(b.Max);
-        return (new Vector3(Math.Min(a.X, z.X), Math.Min(a.Y, z.Y), Math.Min(a.Z, z.Z)),
-                new Vector3(Math.Max(a.X, z.X), Math.Max(a.Y, z.Y), Math.Max(a.Z, z.Z)));
+        // هر ۸ گوشهٔ جعبه تبدیل می‌شود — با چرخش‌های سه‌محوره، گوشه‌های کم‌شمار ناکافی‌اند
+        double minX = double.MaxValue, minY = double.MaxValue, minZ = double.MaxValue;
+        double maxX = double.MinValue, maxY = double.MinValue, maxZ = double.MinValue;
+        for (int i = 0; i < 8; i++)
+        {
+            var c = Apply(new Vector3(
+                (i & 1) == 0 ? b.Min.X : b.Max.X,
+                (i & 2) == 0 ? b.Min.Y : b.Max.Y,
+                (i & 4) == 0 ? b.Min.Z : b.Max.Z));
+            minX = Math.Min(minX, c.X); minY = Math.Min(minY, c.Y); minZ = Math.Min(minZ, c.Z);
+            maxX = Math.Max(maxX, c.X); maxY = Math.Max(maxY, c.Y); maxZ = Math.Max(maxZ, c.Z);
+        }
+        return (new Vector3(minX, minY, minZ), new Vector3(maxX, maxY, maxZ));
     }
 }
 

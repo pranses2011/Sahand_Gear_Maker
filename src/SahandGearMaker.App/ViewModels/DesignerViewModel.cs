@@ -318,6 +318,8 @@ public partial class DesignerViewModel : ObservableObject
             Y = part.Placement.Y,
             Z = part.Placement.Z,
             Theta = part.Placement.Theta,
+            ThetaX = part.Placement.ThetaX,
+            ThetaY = part.Placement.ThetaY,
             Scale = part.Placement.Scale,
         };
         _project.Parts.Add(copy);
@@ -444,7 +446,9 @@ public partial class DesignerViewModel : ObservableObject
         obj.Transform = new ObjectTransform(
             new MathX.Vector3(part.Placement.X, part.Placement.Y, part.Placement.Z),
             part.Placement.Theta,
-            part.Placement.Scale <= 0 ? 1.0 : part.Placement.Scale);
+            part.Placement.Scale <= 0 ? 1.0 : part.Placement.Scale,
+            part.Placement.ThetaX,
+            part.Placement.ThetaY);
         obj.Color = Rgb.FromHex(part.DisplayColor);
         obj.Opacity = part.DisplayOpacity;
         obj.Visible = part.DisplayVisible;
@@ -473,14 +477,18 @@ public partial class DesignerViewModel : ObservableObject
 
     // ---------- کنترل‌های شیئ (فاز ۱C) ----------
 
-    public void SetPartPlacement(GearPart part, double x, double y, double z, double thetaDeg, double scale)
+    public void SetPartPlacement(GearPart part, double x, double y, double z, double thetaDeg, double scale,
+        double thetaXDeg = double.NaN, double thetaYDeg = double.NaN)
     {
+        var old = part.Placement;
         part.Placement = new Placement
         {
             X = x,
             Y = y,
             Z = z,
             Theta = UnitConverter.DegToRad(thetaDeg),
+            ThetaX = double.IsNaN(thetaXDeg) ? old.ThetaX : UnitConverter.DegToRad(thetaXDeg),
+            ThetaY = double.IsNaN(thetaYDeg) ? old.ThetaY : UnitConverter.DegToRad(thetaYDeg),
             Scale = Math.Clamp(scale, 0.05, 20),
         };
         SyncPartDisplay(part);
@@ -697,26 +705,56 @@ public partial class DesignerViewModel : ObservableObject
     /// <summary>چیدمان خودکار جفت‌های تعریف‌شده (۳٫۲): فاصلهٔ محور از محاسبهٔ جفت‌سنج.</summary>
     public string AutoLayoutMatings()
     {
-        int applied = 0, failed = 0;
-        var byId = _project.Parts.ToDictionary(p => p.Id);
-        foreach (var m in _project.Matings)
-        {
-            if (!byId.TryGetValue(m.PartAId, out var a) || !byId.TryGetValue(m.PartBId, out var b)) { failed++; continue; }
-            var result = CheckMating(m.Kind, a, b);
-            if (result is null || !result.IsCompatible || result.CenterDistanceMm <= 0) { failed++; continue; }
+        // موتور گراف مونتاژ (نسخهٔ ۰٫۵ — رفع «بیش از ۲ قطعه روی هم» و «دندانه‌ها روی هم»)
+        var result = SahandGearMaker.Assembly.AssemblyLayoutEngine.AutoLayout(new LayoutContext(this));
+        foreach (var p in _project.Parts)
+            UpdateSceneObjectPlacement(p);
+        return result.Failed == 0
+            ? $"چیدمان خودکار: {result.Applied} رابطه با فاز دندانهٔ درست اعمال شد."
+            : $"چیدمان خودکار: {result.Applied} اعمال، {result.Failed} ناسازگار؛ {string.Join(" ", result.Notes)}";
+    }
 
-            // A در مبدأ می‌ماند؛ B روی محور X با فاصلهٔ محور
-            double ang = Math.Atan2(b.Placement.Y - a.Placement.Y, b.Placement.X - a.Placement.X);
-            if (double.IsNaN(ang) || a.Placement.X == b.Placement.X && a.Placement.Y == b.Placement.Y) ang = 0;
-            SetPartDisplayPosition(b,
-                a.Placement.X + result.CenterDistanceMm * Math.Cos(ang),
-                a.Placement.Y + result.CenterDistanceMm * Math.Sin(ang),
-                b.Placement.Z);
-            applied++;
+    /// <summary>به‌روزرسانی تبدیل صحنهٔ یک قطعه پس از تغییر جای‌گذاری (چیدمان/نمای انفجاری).</summary>
+    public void UpdateSceneObjectPlacement(GearPart part)
+    {
+        if (_sceneObjects.TryGetValue(part.Id, out var obj))
+        {
+            obj.Transform = new ObjectTransform(
+                new MathX.Vector3(part.Placement.X, part.Placement.Y, part.Placement.Z),
+                part.Placement.Theta,
+                part.Placement.Scale <= 0 ? 1.0 : part.Placement.Scale,
+                part.Placement.ThetaX,
+                part.Placement.ThetaY);
         }
-        return failed == 0
-            ? $"چیدمان خودکار: {applied} رابطه اعمال شد."
-            : $"چیدمان خودکار: {applied} اعمال، {failed} رابطه ناسازگار/ناقص.";
+    }
+
+    /// <summary>پارالِز موتور چیدمان به داده‌های طراح — بدون WPF و قابل‌آزمون.</summary>
+    private sealed class LayoutContext(DesignerViewModel vm) : SahandGearMaker.Assembly.AssemblyLayoutEngine.ILayoutContext
+    {
+        public IReadOnlyList<GearPart> Parts => vm._project.Parts;
+        public IReadOnlyList<MatingRelation> Matings => vm._project.Matings;
+
+        public MatingCheckResult? Check(MatingKind kind, GearPart a, GearPart b) => DesignerViewModel.CheckMating(kind, a, b);
+
+        public double RadiusOf(GearPart part)
+            => vm._builds.TryGetValue(part.Id, out var b) ? b.Figures.TipRadius : 20.0;
+
+        public int? ToothCountOf(GearPart part)
+        {
+            if (part.Family is GearFamily.Rack or GearFamily.HelicalRack)
+                return null;
+            if (!vm._builds.TryGetValue(part.Id, out var b))
+                return part.Teeth.ToothCount;
+            return b.Figures.ToothCount > 0 ? b.Figures.ToothCount : part.Teeth.ToothCount;
+        }
+
+        public bool IsInternal(GearPart part)
+            => part.Family is GearFamily.InternalSpur or GearFamily.InternalHelical or GearFamily.SplineInternal;
+
+        public double PitchRadiusOf(GearPart part)
+            => vm._builds.TryGetValue(part.Id, out var b) && b.Figures.PitchRadius > 1e-6
+                ? b.Figures.PitchRadius
+                : part.Teeth.Module * Math.Max(6, part.Teeth.ToothCount) / 2.0;
     }
 
     /// <summary>جفت‌سنجی ۱۱گانه از کتابخانهٔ آزموده (۳٫۱) — UI فقط نمایش‌گر است.</summary>

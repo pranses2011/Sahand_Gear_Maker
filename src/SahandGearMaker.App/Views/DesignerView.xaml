@@ -234,7 +234,7 @@
                                 </UniformGrid>
                                 <UniformGrid Columns="3">
                                     <StackPanel Margin="0,0,6,4">
-                                        <TextBlock Text="چرخش (درجه)" Style="{StaticResource MutedText}" FontSize="11" />
+                                        <TextBlock Text="چرخش θ (درجه)" Style="{StaticResource MutedText}" FontSize="11" />
                                         <TextBox x:Name="PlaceTheta" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
                                     </StackPanel>
                                     <StackPanel Margin="0,0,6,4">
@@ -244,6 +244,16 @@
                                     <StackPanel Margin="0,0,0,4">
                                         <TextBlock Text="شفافیت (۰-۱)" Style="{StaticResource MutedText}" FontSize="11" />
                                         <TextBox x:Name="PlaceOpacity" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
+                                    </StackPanel>
+                                </UniformGrid>
+                                <UniformGrid Columns="2">
+                                    <StackPanel Margin="0,0,6,4">
+                                        <TextBlock Text="کج‌کردن حول X (درجه — مونتاژ ۳بعدی)" Style="{StaticResource MutedText}" FontSize="11" />
+                                        <TextBox x:Name="PlaceThetaX" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
+                                    </StackPanel>
+                                    <StackPanel Margin="0,0,0,4">
+                                        <TextBlock Text="کج‌کردن حول Y (درجه — مثلاً ۹۰ = محور افقی)" Style="{StaticResource MutedText}" FontSize="11" />
+                                        <TextBox x:Name="PlaceThetaY" LostFocus="Placement_LostFocus" FlowDirection="LeftToRight" FontSize="12" />
                                     </StackPanel>
                                 </UniformGrid>
                                 <UniformGrid Columns="2">

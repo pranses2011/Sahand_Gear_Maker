@@ -106,7 +106,7 @@ public sealed class GearPart
             SplineBacklashMm = Specific.SplineBacklashMm,
             SplineStandardNote = Specific.SplineStandardNote,
         },
-        Placement = new Placement { X = Placement.X, Y = Placement.Y, Z = Placement.Z, Theta = Placement.Theta, Scale = Placement.Scale },
+        Placement = new Placement { X = Placement.X, Y = Placement.Y, Z = Placement.Z, Theta = Placement.Theta, ThetaX = Placement.ThetaX, ThetaY = Placement.ThetaY, Scale = Placement.Scale },
         DisplayColor = DisplayColor,
         DisplayOpacity = DisplayOpacity,
         DisplayVisible = DisplayVisible,
@@ -127,8 +127,14 @@ public sealed class Placement
     /// <summary>ارتفاع مرکز روی محور Z (mm) — برای انباشت محوری (فاز ۱C).</summary>
     public double Z { get; set; }
 
-    /// <summary>زاویهٔ چرخش اولیهٔ دوران حول محور Z (رادیان).</summary>
+    /// <summary>زاویهٔ چرخش اولیهٔ دوران حول محور Z (رادیان) — اسپین قطعه حول محور خودش.</summary>
     public double Theta { get; set; }
+
+    /// <summary>چرخش حول محور X (رادیان) — جهت‌دهی محور برای مونتاژ کرم/مخروطی (نسخهٔ ۰٫۵).</summary>
+    public double ThetaX { get; set; }
+
+    /// <summary>چرخش حول محور Y (رادیان) — مثلاً ۹۰° = محور Z به X (چرخ کرم کنار کرم).</summary>
+    public double ThetaY { get; set; }
 
     /// <summary>مقیاس نمایشی یکنواخت — ۱ = واقعی (فاز ۱C: کنترل مقیاس شیئ).</summary>
     public double Scale { get; set; } = 1.0;
