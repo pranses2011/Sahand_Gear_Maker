@@ -30,6 +30,12 @@ internal sealed class VertexPool
     private readonly Dictionary<(double Z, string Key), List<int>> _zRings = new();
     private readonly Dictionary<double, int> _zCenters = new();
 
+    // حلقهٔ مقطع دلخواه (بور D/شش‌گوش/…) در ارتفاع z — بدون پیچش (سوراخ ماشین‌کاری موازی محور)
+    private readonly Dictionary<(double Z, string Key), List<int>> _shapeLoops = new();
+
+    // حفرهٔ سبک‌سازی با شکل دلخواه در (cx, cy) و چرخش مشخص
+    private readonly Dictionary<(double Z, string Key), List<int>> _holeLoops = new();
+
     public VertexPool(TriMesh mesh) => _mesh = mesh;
 
     public int SliceCount => _zs.Count;
@@ -98,6 +104,43 @@ internal sealed class VertexPool
         idx = _mesh.AddVertex(new Vector3(0, 0, z));
         _zCenters[key] = idx;
         return idx;
+    }
+
+    /// <summary>
+    /// حلقهٔ رأس از مقطع دوبعدی دلخواه (CCW) در ارتفاع z — بدون پیچش.
+    /// برای بورهای D/شش‌گوش/هزارخار و هر سوراخ ماشین‌کاری موازی محور.
+    /// </summary>
+    public List<int> ShapeLoopAtZ(double z, string key, IReadOnlyList<Point2> section)
+    {
+        var k = (Math.Round(z, 6), key);
+        if (_shapeLoops.TryGetValue(k, out var cached))
+            return cached;
+        var ids = new List<int>(section.Count);
+        foreach (var p in section)
+            ids.Add(_mesh.AddVertex(new Vector3(p.X, p.Y, z)));
+        _shapeLoops[k] = ids;
+        return ids;
+    }
+
+    /// <summary>
+    /// حلقهٔ حفرهٔ سبک‌سازی با شکل دلخواه: مقطع حول مرکز (cx, cy) با چرخش rotationRad.
+    /// کش بر اساس (z, key) — همان حلقه بین درپوش و دیواره بازاستفاده می‌شود تا مش آب‌بند بماند.
+    /// </summary>
+    public List<int> HoleLoopAtZ(double z, string key, IReadOnlyList<Point2> section, double cx, double cy, double rotationRad)
+    {
+        var k = (Math.Round(z, 6), key);
+        if (_holeLoops.TryGetValue(k, out var cached))
+            return cached;
+        double cos = Math.Cos(rotationRad), sin = Math.Sin(rotationRad);
+        var ids = new List<int>(section.Count);
+        foreach (var p in section)
+        {
+            double x = cx + p.X * cos - p.Y * sin;
+            double y = cy + p.X * sin + p.Y * cos;
+            ids.Add(_mesh.AddVertex(new Vector3(x, y, z)));
+        }
+        _holeLoops[k] = ids;
+        return ids;
     }
 
     /// <summary>حلقهٔ دایرهٔ هم‌مرکز (بور/ریشه/توپی) — یکتا در هر برش؛ زاویه‌ها از 0 شروع و CCW.</summary>

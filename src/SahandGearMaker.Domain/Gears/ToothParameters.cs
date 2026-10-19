@@ -55,6 +55,62 @@ public enum ProfileSystem
 }
 
 /// <summary>
+/// شکل سوراخ مرکزی (بور) — نسخهٔ ۰٫۵ «همهٔ انواع سوراخ».
+/// اندازه از BoreDiameter خوانده می‌شود؛ پارامترهای تکمیلی هر شکل در BodyFeatures.
+/// </summary>
+public enum BoreShapeType
+{
+    /// <summary>دایرهٔ ساده (پیش‌فرض).</summary>
+    Round,
+
+    /// <summary>سوراخ D — دایره با یک سطح تخت (برای مهار دوران؛ رایج در موتورخانه).</summary>
+    DShape,
+
+    /// <summary>سوراخ دو-D — دایره با دو سطح تخت موازی (گشتاور بیشتر، نگهداری متقارن).</summary>
+    DoubleD,
+
+    /// <summary>شش‌گوش (metric hex) — بین‌سرِ مساوی با قطر بور.</summary>
+    Hexagon,
+
+    /// <summary>چهارگوش (square) — بین‌سرِ مساوی با قطر بور.</summary>
+    Square,
+
+    /// <summary>دایره + شیار خار (پارامترهای Keyway*).</summary>
+    Keyed,
+
+    /// <summary>هزارخار مستقیم‌دیواره روی بور (اتصال شفت با خارهای محیطی).</summary>
+    Spline,
+}
+
+/// <summary>شکل حفره‌های سبک‌سازی — نسخهٔ ۰٫۵ «فقط دایره نباشد».</summary>
+public enum LighteningHoleShape
+{
+    /// <summary>دایره (کلاسیک).</summary>
+    Circle,
+
+    /// <summary>مثلث متساوی‌الاضلاع.</summary>
+    Triangle,
+
+    /// <summary>مربع.</summary>
+    Square,
+
+    /// <summary>پنج‌ضلعی.</summary>
+    Pentagon,
+
+    /// <summary>شش‌ضلعی (متداول در چرخ‌دنده‌های ریخته‌گری).</summary>
+    Hexagon,
+
+    /// <summary>هشت‌ضلعی.</summary>
+    Octagon,
+
+    /// <summary>شکاف کشیده با سرهای نیم‌دایره (obround/slot) — طول = ۲× عرض.</summary>
+    Slot,
+
+    /// <summary>ستارهٔ شش‌پر (سبک‌سازی تزیینی/سورس‌رخ).</summary>
+    Star,
+}
+
+/// <summary>
 /// ویژگی‌های بدنه (سند ۰۳، بخش ۵) — «داخل چرخ‌دنده» به معنای حفره/جزئیات بدنه،
 /// جدا از «دندانهٔ داخلی» که خودش یک خانوادهٔ هندسی است.
 /// </summary>
@@ -63,14 +119,38 @@ public sealed class BodyFeatures
     /// <summary>قطر سوراخ مرکزی/بور؛ صفر = بدون سوراخ.</summary>
     public double BoreDiameter { get; set; } = 10.0;
 
+    /// <summary>شکل بور — نسخهٔ ۰٫۵: گرد، D، دو-D، شش‌گوش، چهارگوش، خاردار، هزارخار.</summary>
+    public BoreShapeType BoreShape { get; set; } = BoreShapeType.Round;
+
+    /// <summary>فاصلهٔ سطح(های) تخت D/دو-D از مرکز (mm). صفر = خودکار (۹۰٪ شعاع).</summary>
+    public double BoreFlatDistanceMm { get; set; }
+
+    /// <summary>تعداد خارهای بور هزارخار (۳ تا ۲۴).</summary>
+    public int BoreSplineCount { get; set; } = 6;
+
+    /// <summary>ارتفاع خار بور هزارخار از دایرهٔ ریشه (mm).</summary>
+    public double BoreSplineDepthMm { get; set; } = 1.5;
+
     /// <summary>تعداد سوراخ‌های سبک‌سازی روی دایرهٔ گام بدنه؛ صفر = ندارد.</summary>
     public int LighteningHoleCount { get; set; }
 
-    /// <summary>قطر هر سوراخ سبک‌سازی.</summary>
+    /// <summary>اندازهٔ هر حفرهٔ سبک‌سازی — قطر دایره یا بین‌سرِ چندضلعی‌ها (mm).</summary>
     public double LighteningHoleDiameter { get; set; } = 8.0;
+
+    /// <summary>شکل حفره‌های سبک‌سازی (دایره، چندضلعی‌ها، شکاف، ستاره).</summary>
+    public LighteningHoleShape LighteningHoleShape { get; set; } = LighteningHoleShape.Circle;
 
     /// <summary>شعاع دایرهٔ مرکز سوراخ‌های سبک‌سازی.</summary>
     public double LighteningHoleCircleRadius { get; set; } = 20.0;
+
+    /// <summary>
+    /// حفره‌ها همراه با پیچش مارپیچ بچرخند؟ پیش‌فرض خیر — حفره‌ها صاف و موازی محور می‌مانند
+    /// («بدون چرخش» — نسخهٔ ۰٫۵، ایراد ۵ کاربر)؛ روشن‌کردن آن الگوی پیچان ریخته‌گری را می‌سازد.
+    /// </summary>
+    public bool LighteningHoleFollowTwist { get; set; }
+
+    /// <summary>چرخش یکنواخت همهٔ حفره‌ها حول محور خودشان (درجه) — برای جهت‌دادن شکاف/مثلث.</summary>
+    public double LighteningHoleRotationDeg { get; set; }
 
     /// <summary>قطر توپی (hub)؛ صفر = بدون توپی. توپی از سطح جانبی بیرون می‌زند.</summary>
     public double HubDiameter { get; set; }

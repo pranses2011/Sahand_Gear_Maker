@@ -67,6 +67,31 @@ public static class GearGeometryEngine
         // سازنده‌های قدیمی گاهی مثلث‌هایی را با چرخش معکوس منتشر می‌کردند؛ این passo همهٔ خروجی‌ها را
         // به‌صورت سازگار و رو به بیرون درمی‌آورد تا backface-culling رندرر و خروجی STL سالم باشند.
         result.Mesh.NormalizeOrientation();
+
+        // اطلاع‌رسانی صادقانهٔ شکل‌های بور/حفره که فقط روی خانواده‌های استوانه‌ای/کرم ساخته می‌شوند
+        var extraNotes = new List<GearDiagnostic>();
+        if (BoreSection.EffectiveShape(body) != BoreShapeType.Round && !BoreSection.SupportedOn(family))
+            extraNotes.Add(new GearDiagnostic("SGM-I480", Severity.Info,
+                $"شکل بور انتخابی روی خانوادهٔ {family} ساخته نمی‌شود؛ بور دایره‌ای اعمال شد. شکل‌های D/شش‌گوش/… روی خانواده‌های استوانه‌ای، کرم و چرخ کرم پشتیبانی می‌شوند.", "BoreShape"));
+        if (body.LighteningHoleShape != LighteningHoleShape.Circle
+            && body.LighteningHoleCount > 0
+            && family is not (GearFamily.ExternalSpur or GearFamily.ExternalHelical or GearFamily.ExternalHerringbone
+                or GearFamily.InternalSpur or GearFamily.InternalHelical or GearFamily.CrossedHelical
+                or GearFamily.Cycloidal or GearFamily.SplineExternal or GearFamily.SplineInternal))
+            extraNotes.Add(new GearDiagnostic("SGM-I481", Severity.Info,
+                "شکل حفرهٔ سبک‌سازی فقط روی خانواده‌های استوانه‌ای/هارمونیک اعمال می‌شود؛ در این خانواده حفره دایره‌ای ساخته شد.", "LighteningHoleShape"));
+
+        if (extraNotes.Count > 0)
+        {
+            result = new GearBuildResult
+            {
+                Mesh = result.Mesh,
+                Figures = result.Figures,
+                Diagnostics = result.Diagnostics.Concat(extraNotes).ToList(),
+                AxialSlicesUsed = result.AxialSlicesUsed,
+                EffectiveChordToleranceMm = result.EffectiveChordToleranceMm,
+            };
+        }
         return result;
     }
 

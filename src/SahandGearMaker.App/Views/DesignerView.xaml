@@ -45,19 +45,81 @@
                     </StackPanel>
                 </GroupBox>
 
-                <GroupBox Header="بدنه">
+                <GroupBox Header="سوراخ مرکزی و بدنه">
                     <StackPanel>
-                        <TextBlock Text="قطر سوراخ مرکزی (mm)" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <TextBlock Text="شکل سوراخ مرکزی" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <ComboBox x:Name="BoreShapeCombo" SelectionChanged="BoreShape_SelectionChanged" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock Text="قطر سوراخ مرکزی / بین-سر (mm)" Style="{StaticResource MutedText}" Margin="0,2" TextWrapping="Wrap" />
                         <TextBox x:Name="BoreDiameter" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
 
-                        <TextBlock Text="پهنای شیار خار (mm — صفر = بدون خار)" Style="{StaticResource MutedText}" Margin="0,2" TextWrapping="Wrap" />
-                        <TextBox x:Name="KeywayWidth" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+                        <TextBlock x:Name="BoreFlatLabel" Text="فاصلهٔ سطح تخت D از مرکز (mm — صفر = خودکار)" Style="{StaticResource MutedText}" Margin="0,2" TextWrapping="Wrap" />
+                        <TextBox x:Name="BoreFlatDistance" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock x:Name="BoreSplineCountLabel" Text="تعداد خارهای هزارخار بور" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <TextBox x:Name="BoreSplineCount" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock x:Name="BoreSplineDepthLabel" Text="ارتفاع خار بور (mm)" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <TextBox x:Name="BoreSplineDepth" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock x:Name="KeywayWidthLabel" Text="پهنای شیار خار (mm — صفر = بدون خار)" Style="{StaticResource MutedText}" Margin="0,2" TextWrapping="Wrap" />
+                        <TextBox x:Name="KeywayWidth" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,4" />
+                        <TextBlock x:Name="KeywayDepthLabel" Text="عمق شیار خار (mm)" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <TextBox x:Name="KeywayDepth" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock Text="پخ دهانهٔ بور ۴۵° (mm — صفر = بدون)" Style="{StaticResource MutedText}" Margin="0,2" TextWrapping="Wrap" />
+                        <TextBox x:Name="BoreChamfer" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
 
                         <TextBlock Text="قطر توپی (mm — صفر = بدون توپی)" Style="{StaticResource MutedText}" Margin="0,2" TextWrapping="Wrap" />
-                        <TextBox x:Name="HubDiameter" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+                        <TextBox x:Name="HubDiameter" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,4" />
+                        <TextBlock Text="طول توپی (mm)" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <TextBox x:Name="HubLength" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+                    </StackPanel>
+                </GroupBox>
 
-                        <TextBlock Text="حفره‌های سبک‌سازی (تعداد — صفر = بدون)" Style="{StaticResource MutedText}" Margin="0,2" TextWrapping="Wrap" />
-                        <TextBox x:Name="LighteningHoles" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,4" />
+                <GroupBox Header="حفره‌های سبک‌سازی">
+                    <StackPanel>
+                        <TextBlock Text="شکل حفره" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <ComboBox x:Name="LighteningShapeCombo" SelectionChanged="LighteningShape_SelectionChanged" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock Text="تعداد (صفر = بدون حفره)" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <TextBox x:Name="LighteningHoles" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock Text="اندازهٔ حفره — قطر/بین-سر (mm)" Style="{StaticResource MutedText}" Margin="0,2" TextWrapping="Wrap" />
+                        <TextBox x:Name="LighteningSize" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock Text="شعاع دایرهٔ مرکز حفره‌ها (mm — صفر = خودکار)" Style="{StaticResource MutedText}" Margin="0,2" TextWrapping="Wrap" />
+                        <TextBox x:Name="LighteningCircleRadius" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock Text="چرخش همهٔ حفره‌ها (درجه)" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <TextBox x:Name="LighteningRotation" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <CheckBox x:Name="LighteningFollowTwist" Content="حفره‌ها همراه پیچش مارپیچ بچرخند (پیش‌فرض: بدون چرخش)" Checked="LighteningFollow_Changed" Unchecked="LighteningFollow_Changed" Margin="0,2,0,4" FlowDirection="RightToLeft" />
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="دندانه — پیشرفته">
+                    <StackPanel>
+                        <TextBlock Text="ضریب اصلاح پروفیل x" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <TextBox x:Name="ProfileShift" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock Text="لقی جانبی دندانه (mm)" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <TextBox x:Name="BacklashAllowance" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock Text="ضریب ارتفاع سر (ha*)" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <TextBox x:Name="AddendumCoef" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock Text="ضریب عمق ریشه (hf*)" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <TextBox x:Name="DedendumCoef" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock Text="ضریب شعاع فیلهٔ ریشه" Style="{StaticResource MutedText}" Margin="0,2" />
+                        <TextBox x:Name="RootFilletCoef" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock Text="پخ نوک دندانه (mm — صفر = بدون)" Style="{StaticResource MutedText}" Margin="0,2" TextWrapping="Wrap" />
+                        <TextBox x:Name="TipChamfer" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
+
+                        <TextBlock x:Name="HerringboneGapLabel" Text="گپ مرکزی جناغی (mm — صفر = پیوسته)" Style="{StaticResource MutedText}" Margin="0,2" TextWrapping="Wrap" />
+                        <TextBox x:Name="HerringboneGap" LostFocus="Numeric_LostFocus" FlowDirection="LeftToRight" HorizontalAlignment="Left" Width="140" Margin="0,2,0,8" />
                     </StackPanel>
                 </GroupBox>
 

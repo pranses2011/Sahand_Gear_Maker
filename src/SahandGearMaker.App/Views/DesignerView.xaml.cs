@@ -29,6 +29,30 @@ public partial class DesignerView : UserControl
         InitializeComponent();
     }
 
+    // عنوان‌های فارسی شکل‌های بور/حفره — نسخهٔ ۰٫۵
+    private static readonly (BoreShapeType Shape, string Title)[] BoreShapeItems =
+    {
+        (BoreShapeType.Round, "دایره‌ای"),
+        (BoreShapeType.DShape, "D (سطح تخت)"),
+        (BoreShapeType.DoubleD, "دو-D"),
+        (BoreShapeType.Hexagon, "شش‌گوش"),
+        (BoreShapeType.Square, "چهارگوش"),
+        (BoreShapeType.Keyed, "دایره + شیار خار"),
+        (BoreShapeType.Spline, "هزارخار"),
+    };
+
+    private static readonly (LighteningHoleShape Shape, string Title)[] LighteningShapeItems =
+    {
+        (LighteningHoleShape.Circle, "دایره"),
+        (LighteningHoleShape.Triangle, "مثلث"),
+        (LighteningHoleShape.Square, "مربع"),
+        (LighteningHoleShape.Pentagon, "پنج‌ضلعی"),
+        (LighteningHoleShape.Hexagon, "شش‌ضلعی"),
+        (LighteningHoleShape.Octagon, "هشت‌ضلعی"),
+        (LighteningHoleShape.Slot, "شکاف کشیده"),
+        (LighteningHoleShape.Star, "ستارهٔ ۶پر"),
+    };
+
     public void Bind(MainWindow main)
     {
         _main = main;
@@ -38,6 +62,9 @@ public partial class DesignerView : UserControl
             var info = CapabilityCatalog.GearFamilies.First(x => x.Key == f.ToString());
             return $"{info.PersianTitle}";
         }).ToList();
+
+        BoreShapeCombo.ItemsSource = BoreShapeItems.Select(it => it.Title).ToList();
+        LighteningShapeCombo.ItemsSource = LighteningShapeItems.Select(it => it.Title).ToList();
 
         PartsList.ItemsSource = VM.PartNodes;
         DiagnosticsList.ItemsSource = VM.Diagnostics;
@@ -114,10 +141,39 @@ public partial class DesignerView : UserControl
                 PressureAngle.Text = Fmt(UnitConverter.RadToDeg(p.Teeth.PressureAngle));
                 HelixAngle.Text = Fmt(UnitConverter.RadToDeg(p.Teeth.HelixAngle));
                 FaceWidth.Text = Fmt(p.Teeth.FaceWidth);
+
+                // شکل مؤثر بور: شیار خار فعال یعنی Keyed (مهاجرت قدیمی)
+                var effBore = SahandGearMaker.Geometry.BoreSection.EffectiveShape(p.Body);
+                int boreIdx = Array.FindIndex(BoreShapeItems, it => it.Shape == effBore);
+                if (BoreShapeCombo.SelectedIndex != boreIdx) BoreShapeCombo.SelectedIndex = boreIdx;
                 BoreDiameter.Text = Fmt(p.Body.BoreDiameter);
+                BoreFlatDistance.Text = Fmt(p.Body.BoreFlatDistanceMm);
+                BoreSplineCount.Text = p.Body.BoreSplineCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                BoreSplineDepth.Text = Fmt(p.Body.BoreSplineDepthMm);
                 KeywayWidth.Text = Fmt(p.Body.KeywayWidth);
+                KeywayDepth.Text = Fmt(p.Body.KeywayDepth);
+                BoreChamfer.Text = Fmt(p.Body.BoreChamferMm);
                 HubDiameter.Text = Fmt(p.Body.HubDiameter);
+                HubLength.Text = Fmt(p.Body.HubLength);
+
+                int lhIdx = Array.FindIndex(LighteningShapeItems, it => it.Shape == p.Body.LighteningHoleShape);
+                if (LighteningShapeCombo.SelectedIndex != lhIdx) LighteningShapeCombo.SelectedIndex = lhIdx;
                 LighteningHoles.Text = p.Body.LighteningHoleCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                LighteningSize.Text = Fmt(p.Body.LighteningHoleDiameter);
+                LighteningCircleRadius.Text = Fmt(p.Body.LighteningHoleCircleRadius);
+                LighteningRotation.Text = Fmt(p.Body.LighteningHoleRotationDeg);
+                LighteningFollowTwist.IsChecked = p.Body.LighteningHoleFollowTwist;
+
+                ProfileShift.Text = Fmt(p.Teeth.ProfileShiftCoefficient);
+                BacklashAllowance.Text = Fmt(p.Teeth.BacklashAllowance);
+                AddendumCoef.Text = Fmt(p.Teeth.AddendumCoefficient);
+                DedendumCoef.Text = Fmt(p.Teeth.DedendumCoefficient);
+                RootFilletCoef.Text = Fmt(p.Teeth.RootFilletCoefficient);
+                TipChamfer.Text = Fmt(p.Body.TipChamferMm);
+                HerringboneGap.Text = Fmt(p.Body.HerringboneCentralGapMm);
+
+                UpdateBoreFieldVisibility(effBore, p.Family);
+
                 ProfileTolerance.Text = Fmt(p.GeometrySettings.ProfileToleranceMm);
                 AxialSlices.Text = p.GeometrySettings.AxialSliceCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
@@ -174,16 +230,94 @@ public partial class DesignerView : UserControl
         p.Teeth.PressureAngle = UnitConverter.DegToRad(ParseDouble(PressureAngle.Text, UnitConverter.RadToDeg(p.Teeth.PressureAngle)));
         p.Teeth.HelixAngle = UnitConverter.DegToRad(ParseDouble(HelixAngle.Text, UnitConverter.RadToDeg(p.Teeth.HelixAngle)));
         p.Teeth.FaceWidth = ParseDouble(FaceWidth.Text, p.Teeth.FaceWidth);
+        p.Teeth.ProfileShiftCoefficient = ParseDouble(ProfileShift.Text, p.Teeth.ProfileShiftCoefficient);
+        p.Teeth.BacklashAllowance = ParseDouble(BacklashAllowance.Text, p.Teeth.BacklashAllowance);
+        p.Teeth.AddendumCoefficient = Math.Max(0.1, ParseDouble(AddendumCoef.Text, p.Teeth.AddendumCoefficient));
+        p.Teeth.DedendumCoefficient = Math.Max(0.1, ParseDouble(DedendumCoef.Text, p.Teeth.DedendumCoefficient));
+        p.Teeth.RootFilletCoefficient = Math.Max(0, ParseDouble(RootFilletCoef.Text, p.Teeth.RootFilletCoefficient));
+
         p.Body.BoreDiameter = ParseDouble(BoreDiameter.Text, p.Body.BoreDiameter);
+        p.Body.BoreFlatDistanceMm = ParseDouble(BoreFlatDistance.Text, p.Body.BoreFlatDistanceMm);
+        p.Body.BoreSplineCount = Math.Clamp(ParseInt(BoreSplineCount.Text, p.Body.BoreSplineCount), 3, 24);
+        p.Body.BoreSplineDepthMm = Math.Max(0.05, ParseDouble(BoreSplineDepth.Text, p.Body.BoreSplineDepthMm));
         p.Body.KeywayWidth = ParseDouble(KeywayWidth.Text, p.Body.KeywayWidth);
+        p.Body.KeywayDepth = Math.Max(0, ParseDouble(KeywayDepth.Text, p.Body.KeywayDepth));
+        p.Body.BoreChamferMm = Math.Max(0, ParseDouble(BoreChamfer.Text, p.Body.BoreChamferMm));
         p.Body.HubDiameter = ParseDouble(HubDiameter.Text, p.Body.HubDiameter);
-        p.Body.LighteningHoleCount = ParseInt(LighteningHoles.Text, p.Body.LighteningHoleCount);
+        p.Body.HubLength = Math.Max(0, ParseDouble(HubLength.Text, p.Body.HubLength));
+        p.Body.TipChamferMm = Math.Max(0, ParseDouble(TipChamfer.Text, p.Body.TipChamferMm));
+        p.Body.HerringboneCentralGapMm = Math.Max(0, ParseDouble(HerringboneGap.Text, p.Body.HerringboneCentralGapMm));
+
+        p.Body.LighteningHoleCount = Math.Max(0, ParseInt(LighteningHoles.Text, p.Body.LighteningHoleCount));
+        p.Body.LighteningHoleDiameter = ParseDouble(LighteningSize.Text, p.Body.LighteningHoleDiameter);
+        p.Body.LighteningHoleCircleRadius = ParseDouble(LighteningCircleRadius.Text, p.Body.LighteningHoleCircleRadius);
+        p.Body.LighteningHoleRotationDeg = ParseDouble(LighteningRotation.Text, p.Body.LighteningHoleRotationDeg);
+        p.Body.LighteningHoleFollowTwist = LighteningFollowTwist.IsChecked == true;
+
         p.GeometrySettings.ProfileToleranceMm = Math.Max(0.002, ParseDouble(ProfileTolerance.Text, p.GeometrySettings.ProfileToleranceMm));
         p.GeometrySettings.AxialSliceCount = Math.Clamp(ParseInt(AxialSlices.Text, p.GeometrySettings.AxialSliceCount), 2, 400);
 
         ReadFamilyParams(p);
         VM.ScheduleRebuild(p);
         RefreshScene();
+    }
+
+    // ---------- شکل بور/حفره — نسخهٔ ۰٫۵ ----------
+
+    private void BoreShape_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_syncing || _main is null || BoreShapeCombo.SelectedIndex < 0) return;
+        if (VM.SelectedPart is not { } p) return;
+        var shape = BoreShapeItems[BoreShapeCombo.SelectedIndex].Shape;
+        if (SahandGearMaker.Geometry.BoreSection.EffectiveShape(p.Body) == shape) return;
+
+        VM.PushUndo();
+        p.Body.BoreShape = shape;
+        if (shape == BoreShapeType.Keyed && p.Body.KeywayWidth <= 0)
+            p.Body.KeywayWidth = Math.Max(2.0, 0.3 * p.Body.BoreDiameter); // خار پیش‌فرض معقول
+        UpdateBoreFieldVisibility(shape, p.Family);
+        VM.ScheduleRebuild(p);
+        RefreshScene();
+    }
+
+    private void LighteningShape_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_syncing || _main is null || LighteningShapeCombo.SelectedIndex < 0) return;
+        if (VM.SelectedPart is not { } p) return;
+        var shape = LighteningShapeItems[LighteningShapeCombo.SelectedIndex].Shape;
+        if (p.Body.LighteningHoleShape == shape) return;
+
+        VM.PushUndo();
+        p.Body.LighteningHoleShape = shape;
+        VM.ScheduleRebuild(p);
+        RefreshScene();
+    }
+
+    private void LighteningFollow_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_syncing || _main is null || VM.SelectedPart is not { } p) return;
+        bool follow = LighteningFollowTwist.IsChecked == true;
+        if (p.Body.LighteningHoleFollowTwist == follow) return;
+        VM.PushUndo();
+        p.Body.LighteningHoleFollowTwist = follow;
+        VM.ScheduleRebuild(p);
+        RefreshScene();
+    }
+
+    /// <summary>نمایش/پنهان‌سازی فیلدهای وابسته به شکل بور و خانواده.</summary>
+    private void UpdateBoreFieldVisibility(BoreShapeType shape, GearFamily family)
+    {
+        bool isD = shape is BoreShapeType.DShape or BoreShapeType.DoubleD;
+        BoreFlatLabel.Visibility = BoreFlatDistance.Visibility = isD ? Visibility.Visible : Visibility.Collapsed;
+        bool isSpline = shape == BoreShapeType.Spline;
+        BoreSplineCountLabel.Visibility = BoreSplineCount.Visibility = isSpline ? Visibility.Visible : Visibility.Collapsed;
+        BoreSplineDepthLabel.Visibility = BoreSplineDepth.Visibility = isSpline ? Visibility.Visible : Visibility.Collapsed;
+        bool isKeyed = shape == BoreShapeType.Keyed;
+        KeywayWidthLabel.Visibility = KeywayWidth.Visibility = isKeyed ? Visibility.Visible : Visibility.Collapsed;
+        KeywayDepthLabel.Visibility = KeywayDepth.Visibility = isKeyed ? Visibility.Visible : Visibility.Collapsed;
+        // اگر فیلد مخفی شد متن آن خالی نمی‌شود — مقدار قبلی حفظ می‌شود اما از دید کاربر خارج است
+        bool herringbone = family == GearFamily.ExternalHerringbone;
+        HerringboneGapLabel.Visibility = HerringboneGap.Visibility = herringbone ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static double ParseDouble(string s, double fallback)

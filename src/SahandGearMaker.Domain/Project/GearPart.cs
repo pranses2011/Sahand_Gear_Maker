@@ -68,9 +68,16 @@ public sealed class GearPart
         Body = new BodyFeatures
         {
             BoreDiameter = Body.BoreDiameter,
+            BoreShape = Body.BoreShape,
+            BoreFlatDistanceMm = Body.BoreFlatDistanceMm,
+            BoreSplineCount = Body.BoreSplineCount,
+            BoreSplineDepthMm = Body.BoreSplineDepthMm,
             LighteningHoleCount = Body.LighteningHoleCount,
             LighteningHoleDiameter = Body.LighteningHoleDiameter,
+            LighteningHoleShape = Body.LighteningHoleShape,
             LighteningHoleCircleRadius = Body.LighteningHoleCircleRadius,
+            LighteningHoleFollowTwist = Body.LighteningHoleFollowTwist,
+            LighteningHoleRotationDeg = Body.LighteningHoleRotationDeg,
             HubDiameter = Body.HubDiameter,
             HubLength = Body.HubLength,
             KeywayWidth = Body.KeywayWidth,

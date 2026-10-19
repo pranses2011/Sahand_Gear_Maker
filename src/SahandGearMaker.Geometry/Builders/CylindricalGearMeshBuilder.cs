@@ -160,6 +160,12 @@ public static class CylindricalGearMeshBuilder
         public double RimOuterRadius { get; set; }
         public double RootRadiusUsed { get; set; }
 
+        /// <summary>مقطع دوبعدی بور (برای شکل‌های غیر دایره — مستقیم و بدون پیچش).</summary>
+        public List<Point2>? ShapedBoreSection { get; set; }
+
+        /// <summary>شکل بور مؤثر (با مهاجرت قدیمی شیار خار).</summary>
+        public BoreShapeType EffectiveBore => BoreSection.EffectiveShape(Body);
+
         /// <summary>شعاع مرز در زاویهٔ دلخواه — درون‌یابی خطی روی نقاط مرز (مرز نسبت به مرکز ستاره‌ای است).</summary>
         public double BoundaryRadiusAt(double theta)
         {
@@ -182,11 +188,19 @@ public static class CylindricalGearMeshBuilder
             return Boundary[lo].Radius + (Boundary[hi].Radius - Boundary[lo].Radius) * k;
         }
 
-        /// <summary>حلقهٔ بور (با شیار خار در صورت فعال بودن) در برش مشخص.</summary>
+        /// <summary>حلقهٔ بور در برش مشخص — دایره از مسیر قبلی؛ شکل‌های دیگر منشور مستقیم.</summary>
         public List<int> BoreLoop(int slice)
-            => Body.KeywayWidth > 0 && !Internal
-                ? Pool.RingWithKeyway(slice, BoreRadius, Body.KeywayWidth, Body.KeywayDepth, Tol, Body.KeywayEndRadius)
-                : Pool.Ring(slice, BoreRing, BoreRadius, Tol);
+        {
+            if (EffectiveBore == BoreShapeType.Round && !Internal)
+                return Pool.Ring(slice, BoreRing, BoreRadius, Tol);
+            return Pool.ShapeLoopAtZ(Pool.Z(slice), "bore", ShapedBoreSection ?? BoreSection.Build(Body, BoreRadius, Tol));
+        }
+
+        /// <summary>حلقهٔ بور در ارتفاع دلخواه (توپی) — هم‌شکل و مستقیم.</summary>
+        public List<int> BoreLoopAtZ(double z)
+            => EffectiveBore == BoreShapeType.Round && !Internal
+                ? Pool.RingAtZ(z, BoreRing, BoreRadius, Tol)
+                : Pool.ShapeLoopAtZ(z, "bore", ShapedBoreSection ?? BoreSection.Build(Body, BoreRadius, Tol));
     }
 
     private static void ComputeRadii(this BuilderContext b)
@@ -213,10 +227,17 @@ public static class CylindricalGearMeshBuilder
         {
             b.RootRadiusUsed = Math.Max(rRoot, b.Fig.BaseRadius);
             double defaultBore = 0.5 * b.Body.BoreDiameter;
-            if (defaultBore >= b.RootRadiusUsed * 0.98)
-                defaultBore = 0.5 * b.RootRadiusUsed; // سقف: بور حداکثر تا ریشه
+            // خارهای بور هزارخار بیرون‌زدگی شعاعی دارند — در سقف بور لحاظ می‌شود
+            double extra = b.EffectiveBore == BoreShapeType.Spline
+                ? Math.Max(0.05, Math.Min(b.Body.BoreSplineDepthMm, defaultBore * 0.5))
+                : 0.0;
+            if (defaultBore + extra >= b.RootRadiusUsed * 0.98)
+                defaultBore = Math.Max(1.0, 0.5 * b.RootRadiusUsed - extra); // سقف: بور حداکثر تا ریشه
             b.BoreRadius = defaultBore;
             b.RimOuterRadius = 0;
+
+            if (b.EffectiveBore != BoreShapeType.Round)
+                b.ShapedBoreSection = BoreSection.Build(b.Body, b.BoreRadius, b.Tol);
         }
     }
 
@@ -386,8 +407,8 @@ public static class CylindricalGearMeshBuilder
         {
             AddLoopAsOuter(b.Pool.ProfileLoop(slice));
 
-            // پخ بور: درپوش تا دایرهٔ بزرگ‌تر (دهانهٔ پخ‌دار) بسته می‌شود؛ مخروط پخ جداگانه ساخته می‌شود
-            bool chamferThisCap = b.Body.BoreChamferMm > 1e-9 && b.Body.KeywayWidth <= 0 && !(top && HasHub(b));
+            // پخ بور فقط برای بور دایره‌ای (درپوش تا دایرهٔ بزرگ‌تر بسته می‌شود؛ مخروط پخ جداگانه)
+            bool chamferThisCap = b.Body.BoreChamferMm > 1e-9 && b.EffectiveBore == BoreShapeType.Round && !(top && HasHub(b));
             double openR = b.BoreRadius;
             if (chamferThisCap)
                 openR += ClampBoreChamfer(b, b.Body.BoreChamferMm);
@@ -425,22 +446,54 @@ public static class CylindricalGearMeshBuilder
 
     private static void AddLighteningHoleLoops(BuilderContext b, int slice, List<List<Point2>> holes, List<int> idxMap)
     {
-        var centers = LighteningHoleCenters(b);
-        if (centers == null)
+        var section = LighteningHoleSection(b);
+        if (section is null)
             return;
-        double rHole = b.Body.LighteningHoleDiameter / 2.0;
-        foreach (var (cx, cy) in centers)
+        foreach (var (loop, _) in LighteningHoleLoops(b, slice, section))
         {
-            var ring = b.Pool.HoleRing(slice, cx, cy, rHole, b.Tol);
-            var hole = new List<Point2>(ring.Count);
-            for (int i = ring.Count - 1; i >= 0; i--) // CW برای حفره
+            var hole = new List<Point2>(loop.Count);
+            for (int i = loop.Count - 1; i >= 0; i--) // CW برای حفره
             {
-                var v = b.Mesh.VertexAt(ring[i]);
+                var v = b.Mesh.VertexAt(loop[i]);
                 hole.Add(new Point2(v.X, v.Y));
-                idxMap.Add(ring[i]);
+                idxMap.Add(loop[i]);
             }
             if (hole.Count >= 3)
                 holes.Add(hole);
+        }
+    }
+
+    /// <summary>مقطع حفرهٔ سبک‌سازی (یک‌بار محاسبه می‌شود؛ null = بدون حفره).</summary>
+    private static List<Point2>? LighteningHoleSection(BuilderContext b)
+    {
+        if (b.Body.LighteningHoleCount <= 0 || b.Body.LighteningHoleDiameter <= 0)
+            return null;
+        var pts = LighteningSection.Build(b.Body.LighteningHoleShape, b.Body.LighteningHoleDiameter, b.Tol);
+        return pts.Count >= 3 ? pts : null;
+    }
+
+    /// <summary>
+    /// حلقه‌های رأس حفره‌ها در برش مشخص — شکل/اندازه/چرخش از BodyFeatures.
+    /// «بدون چرخش» (پیش‌فرض): مرکز و جهت حفره‌ها ثابت می‌ماند (سوراخ ماشین‌کاری موازی محور)؛
+    /// با FollowTwist مرکز و جهت حفره همراه پیچش مارپیچ می‌چرخد.
+    /// </summary>
+    private static IEnumerable<(List<int> Loop, int Index)> LighteningHoleLoops(BuilderContext b, int slice, List<Point2> section)
+    {
+        var centers = LighteningHoleCenters(b);
+        if (centers is null)
+            yield break;
+
+        double z = b.Pool.Z(slice);
+        double twist = b.Body.LighteningHoleFollowTwist ? b.Pool.Twist(slice) : 0.0;
+        double rot = UnitConverter.DegToRad(b.Body.LighteningHoleRotationDeg) + twist;
+        double cos = Math.Cos(twist), sin = Math.Sin(twist);
+
+        for (int h = 0; h < centers.Count; h++)
+        {
+            var (cx, cy) = centers[h];
+            double tx = cx * cos - cy * sin;
+            double ty = cx * sin + cy * cos;
+            yield return (b.Pool.HoleLoopAtZ(z, $"lh{h}", section, tx, ty, rot), h);
         }
     }
 
@@ -494,7 +547,7 @@ public static class CylindricalGearMeshBuilder
         if (b.BoreRadius <= 1e-9)
             return;
 
-        bool chamfer = body.BoreChamferMm > 1e-9 && body.KeywayWidth <= 0;
+        bool chamfer = body.BoreChamferMm > 1e-9 && b.EffectiveBore == BoreShapeType.Round;
         if (!chamfer)
         {
             VertexPool.WallCCW(b.Mesh, b.BoreLoop(0), b.BoreLoop(top));
@@ -531,7 +584,8 @@ public static class CylindricalGearMeshBuilder
         if (b.Body.LighteningHoleCount <= 0 || b.Body.LighteningHoleDiameter <= 0)
             return null;
 
-        double rHole = b.Body.LighteningHoleDiameter / 2.0;
+        // بیشینهٔ نیم‌گسترهٔ شکل (چندضلعی/شکاف از دایره بزرگ‌تر است) — برای فاصلهٔ ایمن از لبه‌ها
+        double rHole = LighteningSection.MaxHalfExtent(b.Body.LighteningHoleShape, b.Body.LighteningHoleDiameter);
 
         double rIn, rOut;
         if (b.Internal)
@@ -546,6 +600,9 @@ public static class CylindricalGearMeshBuilder
             double rWebInner = b.BoreRadius > 1e-9
                 ? b.BoreRadius + rHole + Math.Max(0.4 * b.Teeth.Module, 1.0)
                 : rHole + 0.5 * b.Teeth.Module;
+            // توپی بیرون‌زده فضا را می‌بلعد — حفره‌ها باید بیرون از قطر توپی بمانند
+            if (HasHub(b))
+                rWebInner = Math.Max(rWebInner, b.Body.HubDiameter / 2.0 + rHole + 0.3 * b.Teeth.Module);
             rIn = rWebInner;
             rOut = rWebOuter;
         }
@@ -572,19 +629,35 @@ public static class CylindricalGearMeshBuilder
 
     private static void BuildLighteningHoles(this BuilderContext b, BodyFeatures body)
     {
-        var centers = LighteningHoleCenters(b);
-        if (centers == null)
+        var section = LighteningHoleSection(b);
+        if (section is null)
             return;
 
-        double rHole = body.LighteningHoleDiameter / 2.0;
-        int top = b.Pool.SliceCount - 1;
-        foreach (var (cx, cy) in centers)
-        {
-            var lo = b.Pool.HoleRing(0, cx, cy, rHole, b.Tol);
-            var hi = b.Pool.HoleRing(top, cx, cy, rHole, b.Tol);
-            VertexPool.WallCCW(b.Mesh, lo, hi);
-        }
+        // دیوارهٔ هر حفره بین برش اول و آخر (منشور مستقیم یا پیچان — مطابق FollowTwist)
+        var bottomLoops = LighteningHoleLoops(b, 0, section).ToList();
+        var topLoops = LighteningHoleLoops(b, b.Pool.SliceCount - 1, section).ToList();
+        for (int i = 0; i < bottomLoops.Count; i++)
+            VertexPool.WallCCW(b.Mesh, bottomLoops[i].Loop, topLoops[i].Loop);
+
+        if (body.LighteningHoleShape != LighteningHoleShape.Circle)
+            b.ExtraWarnings.Add(new GearDiagnostic("SGM-I471", Severity.Info,
+                $"حفره‌های سبک‌سازی {ShapeTitle(body.LighteningHoleShape)} با اندازهٔ {body.LighteningHoleDiameter:F1} mm ساخته شدند.", "LighteningHoleShape"));
+        if (body.LighteningHoleFollowTwist)
+            b.ExtraWarnings.Add(new GearDiagnostic("SGM-I472", Severity.Info,
+                "حفره‌های سبک‌سازی همراه با پیچش مارپیچ می‌چرخند (الگوی ریخته‌گری).", "LighteningHoleFollowTwist"));
     }
+
+    private static string ShapeTitle(LighteningHoleShape s) => s switch
+    {
+        LighteningHoleShape.Triangle => "مثلثی",
+        LighteningHoleShape.Square => "مربعی",
+        LighteningHoleShape.Pentagon => "پنج‌ضلعی",
+        LighteningHoleShape.Hexagon => "شش‌ضلعی",
+        LighteningHoleShape.Octagon => "هشت‌ضلعی",
+        LighteningHoleShape.Slot => "شکافی",
+        LighteningHoleShape.Star => "ستاره‌ای",
+        _ => "دایره‌ای",
+    };
 
     private static void BuildHub(this BuilderContext b, BodyFeatures body)
     {
@@ -599,14 +672,14 @@ public static class CylindricalGearMeshBuilder
         double zTop = zBottom + body.HubLength;
         double tol = b.Tol;
 
-        // حلقهٔ داخلی کف توپی = حلقهٔ اختصاصی (جامد توپی مستقل از جامد بدنه، هم‌مکان اما بدون اشتراک یال)
+        // حلقهٔ داخلی کف توپی = همان حلقهٔ بور (هم‌رأس با درپوش بالا — پیوستگی شیار/D/هزارخار در توپی)
         var hubInBottom = b.BoreRadius <= 1e-9
             ? null
-            : b.Pool.RingAtZ(zBottom, HubInner, b.BoreRadius, tol);
+            : b.BoreLoop(top);
         var hubOutBottom = b.Pool.RingAtZ(zBottom, HubOuter, hubR, tol);
         var hubInTop = b.BoreRadius <= 1e-9
             ? null
-            : b.Pool.RingAtZ(zTop, HubInner, b.BoreRadius, tol);
+            : b.BoreLoopAtZ(zTop);
         var hubOutTop = b.Pool.RingAtZ(zTop, HubOuter, hubR, tol);
 
         if (hubInBottom != null)

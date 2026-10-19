@@ -86,9 +86,11 @@ public static class WormMeshBuilder
                 $"طول کرم به {length:F1} mm محدود شد (حداقل ۳ گام محوری) تا گام کامل تشکیل شود.", "FaceWidth"));
 
         double tol = Math.Clamp(quality.ProfileToleranceMm, 0.002, 1.0);
-        if (body.KeywayWidth > 0)
+        // بور کرم: شکل‌های D/شش‌گوش/… به‌صورت منشور مستقیم (موازی محور) ساخته می‌شوند — نسخهٔ ۰٫۵
+        var boreShape = BoreSection.EffectiveShape(body);
+        if (boreShape != BoreShapeType.Round && body.KeywayWidth > 0)
             diags.Add(new GearDiagnostic("SGM-I244", Severity.Info,
-                "شیار خار روی کرم اعمال نمی‌شود (پیچش برش‌ها جهت شیار را مخدوش می‌کند)؛ از اتصال تنی/چندخار استفاده کنید.", "KeywayWidth"));
+                "شیار خار کلاسیک روی کرم با شکل بور غیر دایره ترکیب نشد؛ مقطع انتخابی اعمال می‌شود.", "KeywayWidth"));
 
         bool rightHand = specific.WormIsRightHanded;
 
@@ -113,25 +115,49 @@ public static class WormMeshBuilder
 
         // ---------- بور و درپوش‌ها ----------
         double boreR = body.BoreDiameter / 2.0;
-        if (boreR > 0 && boreR >= rf1 - 0.5 * m)
+        double boreExtra = boreShape == BoreShapeType.Spline ? Math.Max(0.05, body.BoreSplineDepthMm) : 0.0;
+        if (boreR > 0 && boreR + boreExtra >= rf1 - 0.5 * m)
         {
             errors.Add(new GearDiagnostic("SGM-E245", Severity.Error,
-                $"قطر بور کرم ({body.BoreDiameter:F1} mm) باید کوچک‌تر از قطر ریشه باشد (حداکثر ≈ {2.0 * Math.Max(0, rf1 - 0.5 * m):F1} mm).", "BoreDiameter"));
+                $"قطر بور کرم ({body.BoreDiameter:F1} mm) باید کوچک‌تر از قطر ریشه باشد (حداکثر ≈ {2.0 * Math.Max(0, rf1 - 0.5 * m - boreExtra):F1} mm).", "BoreDiameter"));
             throw new GeometryBuildException("بور از ریشهٔ کرم بزرگ‌تر است.", errors);
         }
 
         if (boreR > 0)
         {
-            for (int i = 0; i <= sliceCount; i++)
-                pool.Ring(i, "bore", boreR, tol);
-            for (int i = 0; i < sliceCount; i++)
-                VertexPool.WallCCW(mesh, pool.Ring(i, "bore", boreR, tol), pool.Ring(i + 1, "bore", boreR, tol));
+            if (boreShape == BoreShapeType.Round)
+            {
+                for (int i = 0; i <= sliceCount; i++)
+                    pool.Ring(i, "bore", boreR, tol);
+                for (int i = 0; i < sliceCount; i++)
+                    VertexPool.WallCCW(mesh, pool.Ring(i, "bore", boreR, tol), pool.Ring(i + 1, "bore", boreR, tol));
+            }
+            else
+            {
+                var section = BoreSection.Build(body, boreR, tol);
+                var lo = pool.ShapeLoopAtZ(0, "bore", section);
+                var hi = pool.ShapeLoopAtZ(length, "bore", section);
+                VertexPool.WallCCW(mesh, lo, hi);
+            }
         }
 
-        var wormFrontBore = boreR > 0 ? pool.Ring(0, "bore", boreR, tol) : null;
-        VertexPool.AnnulusCap(mesh, pool.ProfileLoop(0), wormFrontBore, null, negativeZ: true);
-        var wormBackBore = boreR > 0 ? pool.Ring(sliceCount, "bore", boreR, tol) : null;
-        VertexPool.AnnulusCap(mesh, pool.ProfileLoop(sliceCount), wormBackBore, null, negativeZ: false);
+        if (boreShape == BoreShapeType.Round)
+        {
+            var wormFrontBore = boreR > 0 ? pool.Ring(0, "bore", boreR, tol) : null;
+            VertexPool.AnnulusCap(mesh, pool.ProfileLoop(0), wormFrontBore, null, negativeZ: true);
+            var wormBackBore = boreR > 0 ? pool.Ring(sliceCount, "bore", boreR, tol) : null;
+            VertexPool.AnnulusCap(mesh, pool.ProfileLoop(sliceCount), wormBackBore, null, negativeZ: false);
+        }
+        else
+        {
+            var section = BoreSection.Build(body, boreR, tol);
+            VertexPool.AnnulusCap(mesh, pool.ProfileLoop(0), boreR > 0 ? pool.ShapeLoopAtZ(0, "bore", section) : null, null, negativeZ: true);
+            VertexPool.AnnulusCap(mesh, pool.ProfileLoop(sliceCount), boreR > 0 ? pool.ShapeLoopAtZ(length, "bore", section) : null, null, negativeZ: false);
+        }
+
+        if (boreShape != BoreShapeType.Round)
+            diags.Add(new GearDiagnostic("SGM-I246", Severity.Info,
+                $"بور {BoreShapeTitle(boreShape)} به‌صورت منشور مستقیم موازی محور روی کرم ساخته شد.", "BoreShape"));
 
         var fig = new GearGeometryFigures
         {
@@ -217,6 +243,17 @@ public static class WormMeshBuilder
         }
     }
 
+    private static string BoreShapeTitle(BoreShapeType s) => s switch
+    {
+        BoreShapeType.DShape => "D",
+        BoreShapeType.DoubleD => "دو-D",
+        BoreShapeType.Hexagon => "شش‌گوش",
+        BoreShapeType.Square => "چهارگوش",
+        BoreShapeType.Keyed => "خاردار",
+        BoreShapeType.Spline => "هزارخار",
+        _ => "دایره‌ای",
+    };
+
     // ---------- چرخ کرم ----------
 
     public static GearBuildResult BuildWheel(
@@ -275,9 +312,9 @@ public static class WormMeshBuilder
         if (baseBoundary.Count < 8)
             throw new GeometryBuildException("پروفیل چرخ کرم ساخته نشد.", diags);
 
-        if (body.KeywayWidth > 0)
+        if (body.KeywayWidth > 0 && BoreSection.EffectiveShape(body) == BoreShapeType.Round)
             diags.Add(new GearDiagnostic("SGM-I261", Severity.Info,
-                "شیار خار روی چرخ کرم اعمال نمی‌شود (مارپیچ دندانه جهت شیار را مخدوش می‌کند).", "KeywayWidth"));
+                "شیار خار کلاسیک روی چرخ کرم توصیه نمی‌شود (مارپیچ دندانه)؛ برای مهار دوران، بور D یا هزارخار را انتخاب کنید.", "KeywayWidth"));
 
         var mesh = new TriMesh();
         var pool = new VertexPool(mesh);
@@ -306,19 +343,29 @@ public static class WormMeshBuilder
 
         // ---------- بور ----------
         double boreR = body.BoreDiameter / 2.0;
-        if (boreR > 0 && boreR >= rf2 - 0.5 * m)
+        var wheelBoreShape = BoreSection.EffectiveShape(body);
+        double wheelBoreExtra = wheelBoreShape == BoreShapeType.Spline ? Math.Max(0.05, body.BoreSplineDepthMm) : 0.0;
+        if (boreR > 0 && boreR + wheelBoreExtra >= rf2 - 0.5 * m)
         {
             errors.Add(new GearDiagnostic("SGM-E262", Severity.Error,
-                $"قطر بور چرخ کرم باید کوچک‌تر از قطر ریشه باشد (حداکثر ≈ {2.0 * Math.Max(0, rf2 - 0.5 * m):F1} mm).", "BoreDiameter"));
+                $"قطر بور چرخ کرم باید کوچک‌تر از قطر ریشه باشد (حداکثر ≈ {2.0 * Math.Max(0, rf2 - 0.5 * m - wheelBoreExtra):F1} mm).", "BoreDiameter"));
             throw new GeometryBuildException("بور از ریشهٔ چرخ کرم بزرگ‌تر است.", errors);
         }
 
         if (boreR > 0)
         {
-            for (int i = 0; i <= sliceCount; i++)
-                pool.Ring(i, "bore", boreR, tol);
-            for (int i = 0; i < sliceCount; i++)
-                VertexPool.WallCCW(mesh, pool.Ring(i, "bore", boreR, tol), pool.Ring(i + 1, "bore", boreR, tol));
+            if (wheelBoreShape == BoreShapeType.Round)
+            {
+                for (int i = 0; i <= sliceCount; i++)
+                    pool.Ring(i, "bore", boreR, tol);
+                for (int i = 0; i < sliceCount; i++)
+                    VertexPool.WallCCW(mesh, pool.Ring(i, "bore", boreR, tol), pool.Ring(i + 1, "bore", boreR, tol));
+            }
+            else
+            {
+                var section = BoreSection.Build(body, boreR, tol);
+                VertexPool.WallCCW(mesh, pool.ShapeLoopAtZ(0, "bore", section), pool.ShapeLoopAtZ(b2, "bore", section));
+            }
         }
 
         // ---------- درپوش‌ها ----------
@@ -333,7 +380,19 @@ public static class WormMeshBuilder
         double zBack = b2;
 
         // درپوش جلو (نزدیک گلوگاه) و پشت
-        var frontBore = boreR > 0 ? pool.Ring(0, "bore", boreR, tol) : null;
+        List<int>? frontBore;
+        List<int>? backBore0;
+        if (boreR > 0 && wheelBoreShape != BoreShapeType.Round)
+        {
+            var section = BoreSection.Build(body, boreR, tol);
+            frontBore = pool.ShapeLoopAtZ(0, "bore", section);
+            backBore0 = pool.ShapeLoopAtZ(b2, "bore", section);
+        }
+        else
+        {
+            frontBore = boreR > 0 ? pool.Ring(0, "bore", boreR, tol) : null;
+            backBore0 = boreR > 0 ? pool.Ring(sliceCount, "bore", boreR, tol) : null;
+        }
         VertexPool.AnnulusCap(mesh, pool.ProfileLoop(0), frontBore, null, negativeZ: true);
 
         if (hubR > boreR && hubLen > 0)
@@ -346,7 +405,10 @@ public static class WormMeshBuilder
             VertexPool.WallCCWOuter(mesh, backHubRing, farRing);
             if (boreR > 0)
             {
-                var lastBore = pool.Ring(sliceCount, "bore", boreR, tol);
+                // حلقهٔ بور در انتهای بدنه (دایره یا شکل دلخواه) + کپی هم‌شکل در انتهای توپی
+                List<int> lastBore = wheelBoreShape == BoreShapeType.Round
+                    ? pool.Ring(sliceCount, "bore", boreR, tol)
+                    : backBore0!;
                 var farBore = new List<int>(lastBore.Count);
                 foreach (int idx in lastBore)
                 {
@@ -364,9 +426,12 @@ public static class WormMeshBuilder
         }
         else
         {
-            var backBore0 = boreR > 0 ? pool.Ring(sliceCount, "bore", boreR, tol) : null;
             VertexPool.AnnulusCap(mesh, pool.ProfileLoop(sliceCount), backBore0, null, negativeZ: false);
         }
+
+        if (boreR > 0 && wheelBoreShape != BoreShapeType.Round)
+            diags.Add(new GearDiagnostic("SGM-I265", Severity.Info,
+                $"بور {BoreShapeTitle(wheelBoreShape)} روی چرخ کرم ساخته شد (منشور مستقیم).", "BoreShape"));
 
         var figOut = new GearGeometryFigures
         {
