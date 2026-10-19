@@ -71,6 +71,14 @@ public partial class DesignerView : UserControl
         VM.PropertyChanged += OnVmPropertyChanged;
         VM.Rebuilt += (_, _) => RefreshScene();
 
+        // خطای ساخت → رفتن خودکار به تب «پیام‌ها» + نشان شمارنده (ایراد ۱۵)
+        VM.MessagesTabRequested += (_, _) => Dispatcher.Invoke(() =>
+        {
+            LeftTabs.SelectedItem = MessagesTab;
+            UpdateMessagesBadge();
+        });
+        VM.Diagnostics.CollectionChanged += (_, _) => Dispatcher.Invoke(UpdateMessagesBadge);
+
         Viewport.PickRequested += Viewport_PickRequested;
         Viewport.FrameObjectRequested += (_, id) => Viewport.FrameObject(id);
         Viewport.HideObjectRequested += (_, id) => HidePart(id);
@@ -106,6 +114,19 @@ public partial class DesignerView : UserControl
         Viewport.UpdateScene(VM.SceneSnapshot(), VM.SelectedPart?.Id);
         RefreshViewsList();
         VariantsList.ItemsSource = VM.Variants.ToList();
+    }
+
+    /// <summary>نشان شمارندهٔ پیام‌ها روی سربرگ تب — دیده‌شدن پیام‌ها (ایراد ۱۵).</summary>
+    private void UpdateMessagesBadge()
+    {
+        int errors = VM.Diagnostics.Count(d => d.Severity == Severity.Error);
+        int warns = VM.Diagnostics.Count(d => d.Severity == Severity.Warning);
+        MessagesTab.Header = (errors, warns) switch
+        {
+            ( > 0, _) => $"پیام‌ها ⛔ {errors}",
+            (_, > 0) => $"پیام‌ها ⚠ {warns}",
+            _ => "پیام‌ها",
+        };
     }
 
     /// <summary>تازه‌سازی عمومی صحنه — از MainWindow برای مونتاژ/بررسی (فاز ۳/۴).</summary>
@@ -366,9 +387,17 @@ public partial class DesignerView : UserControl
     {
         if (VM.SelectedPart is { } p) VM.RebuildPartNow(p);
         RefreshScene();
-        _main?.SetStatus(VM.LastBuild is null
-            ? "ساخت هندسه ناموفق — پیام‌ها را ببینید."
-            : $"هندسه ساخته شد: {VM.LastBuild.Mesh.TriangleCount:N0} مثلث، {VM.LastBuild.AxialSlicesUsed} برش عرضی.");
+        if (VM.LastBuild is null)
+        {
+            // پیام «پیام‌ها را ببینید» حالا خودش تب را باز می‌کند (ایراد ۱۵)
+            LeftTabs.SelectedItem = MessagesTab;
+            UpdateMessagesBadge();
+            _main?.SetStatus("ساخت هندسه ناموفق — جزئیات در تب «پیام‌ها» (چپ پایین) است.");
+        }
+        else
+        {
+            _main?.SetStatus($"هندسه ساخته شد: {VM.LastBuild.Mesh.TriangleCount:N0} مثلث، {VM.LastBuild.AxialSlicesUsed} برش عرضی.");
+        }
     }
 
     private void RebuildAll_Click(object sender, RoutedEventArgs e)

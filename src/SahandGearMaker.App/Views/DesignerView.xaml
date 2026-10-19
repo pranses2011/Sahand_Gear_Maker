@@ -168,7 +168,7 @@
                 <Button Content="حذف" Style="{StaticResource SecondaryButton}" Click="RemovePart_Click" Padding="8,4" />
             </StackPanel>
 
-            <TabControl Grid.Row="1" Background="Transparent" BorderThickness="0">
+            <TabControl x:Name="LeftTabs" Grid.Row="1" Background="Transparent" BorderThickness="0">
                 <!-- ── تب درخت ── -->
                 <TabItem Header="درخت">
                     <Grid>
@@ -333,7 +333,7 @@
                 </TabItem>
 
                 <!-- ── تب پیام‌ها ── -->
-                <TabItem Header="پیام‌ها">
+                <TabItem x:Name="MessagesTab" Header="پیام‌ها">
                     <GroupBox Header="پیام‌ها و اعتبارسنجی">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <ItemsControl x:Name="DiagnosticsList">

@@ -80,3 +80,86 @@ public static class CadSourceExtractor
         return CylindricalGearMeshBuilder.ExtractCadSource(part, result);
     }
 }
+
+/// <summary>حلقه‌های نمای پلان (نقشهٔ فنی) — پروفیل تحلیلی بدون پیچش (نسخهٔ ۰٫۵).</summary>
+public sealed class PlanViewLoops
+{
+    /// <summary>مرز بیرونی (دندانه‌دار) — CCW.</summary>
+    public List<(double X, double Y)> Outer { get; } = new();
+
+    /// <summary>حفره‌ها: بور، حفره‌های سبک‌سازی، مرز دندانهٔ داخلی.</summary>
+    public List<List<(double X, double Y)>> Holes { get; } = new();
+
+    /// <summary>شعاع بیرونی رینگ برای چرخ‌دندهٔ داخلی (۰ = داخلی نیست).</summary>
+    public double InternalRimRadius { get; set; }
+}
+
+/// <summary>
+/// استخراج حلقه‌های نمای پلان از پروفیل تحلیلی — دقیق و بدون قطع‌قطع شدن سطل‌بندی مش
+/// (رفع «دندانه‌های نقشه تیکه‌تیکه» — ایراد ۱۳ کاربر، نسخهٔ ۰٫۵).
+/// </summary>
+public static class PlanViewExtractor
+{
+    /// <summary>حلقه‌های پلان برای خانواده‌های منشوری؛ null = از این مسیر نمی‌شود (از مش بخوانید).</summary>
+    public static PlanViewLoops? TryExtract(GearPart part, GearBuildResult buildResult)
+    {
+        ArgumentNullException.ThrowIfNull(part);
+        ArgumentNullException.ThrowIfNull(buildResult);
+        if (part.Family is not (GearFamily.ExternalSpur or GearFamily.ExternalHelical or GearFamily.ExternalHerringbone
+            or GearFamily.InternalSpur or GearFamily.InternalHelical or GearFamily.CrossedHelical
+            or GearFamily.Cycloidal or GearFamily.SplineExternal or GearFamily.SplineInternal))
+        {
+            return null;
+        }
+
+        var src = CylindricalGearMeshBuilder.ExtractCadSource(part, buildResult);
+        var loops = new PlanViewLoops();
+
+        // مرز پروفیل برش اول: پیچش صفر → نمای واقعی دندانه (بدون اعوجاج مارپیچ)
+        var ring = src.Rings[0];
+        foreach (var p in ring.Points)
+            loops.Outer.Add((p.X, p.Y));
+
+        if (src.Internal)
+        {
+            loops.InternalRimRadius = src.RimOuterRadius;
+            // مرز دندانه خودش حفرهٔ اصلی است (بیرونی = دایرهٔ رینگ)
+            loops.Holes.Add(new List<(double, double)>(loops.Outer));
+            loops.Outer.Clear();
+            for (int i = 0; i < 64; i++)
+            {
+                double a = 2.0 * Math.PI * i / 64;
+                loops.Outer.Add((src.RimOuterRadius * Math.Cos(a), src.RimOuterRadius * Math.Sin(a)));
+            }
+        }
+        else if (src.BoreSection is { Count: >= 3 })
+        {
+            loops.Holes.Add(src.BoreSection.Select(p => (p.X, p.Y)).ToList());
+        }
+        else if (src.EffectiveBore == BoreShapeType.Round && src.BoreRadius > 1e-9)
+        {
+            var circle = new List<(double, double)>();
+            for (int i = 0; i < 48; i++)
+            {
+                double a = 2.0 * Math.PI * i / 48;
+                circle.Add((src.BoreRadius * Math.Cos(a), src.BoreRadius * Math.Sin(a)));
+            }
+            loops.Holes.Add(circle);
+        }
+
+        // حفره‌های سبک‌سازی (بدون چرخش — حالت پیش‌فرض)
+        if (src.LighteningCenters.Count > 0 && src.LighteningSection.Count >= 3)
+        {
+            double rot = src.LighteningRotationRad;
+            double cos = Math.Cos(rot), sin = Math.Sin(rot);
+            foreach (var (cx, cy) in src.LighteningCenters)
+            {
+                loops.Holes.Add(src.LighteningSection
+                    .Select(p => (cx + p.X * cos - p.Y * sin, cy + p.X * sin + p.Y * cos))
+                    .ToList());
+            }
+        }
+
+        return loops.Outer.Count >= 8 ? loops : null;
+    }
+}

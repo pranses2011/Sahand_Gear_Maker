@@ -16,7 +16,7 @@
                     <StackPanel>
                         <TextBlock Text="🚀 شروع سریع" Style="{StaticResource SectionText}" Margin="0,0,0,6" />
                         <TextBlock Style="{StaticResource BaseText}" TextWrapping="Wrap"
-                                   Text="۱) در تب «طراح چرخ‌دنده» پارامترها را وارد کنید. ۲) پیام‌های اعتبارسنجی را ببینید. ۳) مدل را با درگ/چرخ ماوس بچرخانید و با Shift جابه‌جا کنید. ۴) از تب «خروجی» فایل STL/OBJ/PLY/GLB/3MF/AMF/DXF بگیرید." />
+                                   Text="۱) در تب «طراح چرخ‌دنده» پارامترها را وارد کنید. ۲) پیام‌های اعتبارسنجی در تب «پیام‌ها» (ستون چپ صفحهٔ طراح) را ببینید. ۳) مدل را با درگ/چرخ ماوس بچرخانید و با Shift جابه‌جا کنید. ۴) از تب «خروجی» فایل STL/OBJ/PLY/GLB/3MF/AMF/DXF بگیرید." />
                     </StackPanel>
                 </Border>
 

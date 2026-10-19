@@ -213,15 +213,21 @@ public partial class DrawingView : UserControl
 
             foreach (var line in view.Lines)
             {
+                Brush stroke = line.Style switch
+                {
+                    "center" => Brushes.Gray,
+                    "pitch" => Brushes.DodgerBlue,
+                    _ => Brushes.Black, // لبه‌های ایزومتریک و کانتورهای اصلی — سیاه مهندسی
+                };
                 var ln = new Line
                 {
                     X1 = ox + (line.X1 - b.MinX) * scale,
                     Y1 = oy + (line.Y1 - b.MinY) * scale,
                     X2 = ox + (line.X2 - b.MinX) * scale,
                     Y2 = oy + (line.Y2 - b.MinY) * scale,
-                    Stroke = Brushes.DodgerBlue,
-                    StrokeThickness = 0.7,
-                    StrokeDashArray = line.Style == "center" ? new DoubleCollection { 4, 3 } : null,
+                    Stroke = stroke,
+                    StrokeThickness = Math.Clamp(line.WidthMm * pxPerMm * 1.6, 0.45, 1.4),
+                    StrokeDashArray = line.Style is "center" or "pitch" ? new DoubleCollection { 4, 3 } : null,
                 };
                 canvas.Children.Add(ln);
             }

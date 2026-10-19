@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using SahandGearMaker.Cad;
+using SahandGearMaker.Drawing;
 using SahandGearMaker.Domain;
 using SahandGearMaker.Geometry;
 using SahandGearMaker.MathX;
@@ -348,5 +349,133 @@ public class PrintOptimizationTests
         var boundsAfter = result.Mesh.Bounds();
         Assert.Equal(trisBefore, result.Mesh.TriangleCount);
         Assert.Equal(boundsBefore.Max.Z, boundsAfter.Max.Z, 5);
+    }
+}
+
+// ═══════════ نقشهٔ فنی: پروفیل تحلیلی + ایزومتریک (ایرادهای ۱۱ و ۱۳) ═══════════
+
+public class DrawingQualityTests
+{
+    [Theory]
+    [InlineData(GearFamily.ExternalSpur)]
+    [InlineData(GearFamily.ExternalHelical)]
+    [InlineData(GearFamily.ExternalHerringbone)]
+    [InlineData(GearFamily.InternalSpur)]
+    [InlineData(GearFamily.SplineExternal)]
+    public void PlanView_AnalyticOutline_TeethAreContinuous(GearFamily family)
+    {
+        var part = GearFamilyDefaults.CreatePart(family, "نقشه");
+        GearFamilyDefaults.Normalize(part);
+        if (family == GearFamily.ExternalHelical) part.Teeth.HelixAngle = UnitConverter.DegToRad(20);
+        if (family == GearFamily.ExternalHerringbone) part.Teeth.HelixAngle = UnitConverter.DegToRad(25);
+        var result = GearGeometryEngine.BuildPart(part);
+
+        var doc = TechnicalDrawingBuilder.Build(part, result);
+        var plan = doc.Views[0];
+
+        // مرز تحلیلی: تعداد دندانهٔ قابل‌شمارش = z (قله‌های شعاعی)
+        // داخلی: مرز دندانه حفرهٔ اول است (بیرونی = دایرهٔ رینگ)
+        var outer = family == GearFamily.InternalSpur
+            ? plan.Outlines.FirstOrDefault(o => o.Count > 100) ?? plan.Outlines[0] // مرز دندانه (حفرهٔ اول)
+            : plan.Outlines[0];
+        Assert.True(outer.Count > part.Teeth.ToothCount * 6, $"پروفیل تحلیلی باید نقاط کافی داشته باشد ({outer.Count})");
+
+        int peaks = 0;
+        double rMax = outer.Max(p => Math.Sqrt(p.X * p.X + p.Y * p.Y));
+        double rMin = outer.Min(p => Math.Sqrt(p.X * p.X + p.Y * p.Y));
+        double tipLevel = rMax - (rMax - rMin) * 0.15;
+        bool above = false;
+        for (int i = 0; i < outer.Count; i++)
+        {
+            double r = Math.Sqrt(outer[i].X * outer[i].X + outer[i].Y * outer[i].Y);
+            if (r > tipLevel && !above) { peaks++; above = true; }
+            else if (r < tipLevel) above = false;
+        }
+        Assert.True(peaks >= part.Teeth.ToothCount - 1,
+            $"تعداد قلهٔ دندانه {peaks} باید ≈ z={part.Teeth.ToothCount} باشد — دندانه‌ها تیکه‌تیکه‌اند");
+
+        // پیوستگی: هیچ جهش بزرگی بین نقاط متوالی نیست
+        double maxStep = 0;
+        for (int i = 0; i < outer.Count; i++)
+        {
+            var a = outer[i];
+            var b2 = outer[(i + 1) % outer.Count];
+            maxStep = Math.Max(maxStep, Math.Sqrt(Math.Pow(a.X - b2.X, 2) + Math.Pow(a.Y - b2.Y, 2)));
+        }
+        Assert.True(maxStep < 2.5, $"جهش {maxStep:F2}mm در مرز — خط ناپیوسته است");
+    }
+
+    [Fact]
+    public void PlanView_WithBoreAndHoles_ShowsAllLoops()
+    {
+        var part = GearFamilyDefaults.CreatePart(GearFamily.ExternalSpur, "نقشه کامل");
+        part.Body.BoreShape = BoreShapeType.Hexagon;
+        part.Body.LighteningHoleCount = 5;
+        part.Body.LighteningHoleShape = LighteningHoleShape.Circle;
+        var result = GearGeometryEngine.BuildPart(part);
+
+        var doc = TechnicalDrawingBuilder.Build(part, result);
+        var plan = doc.Views[0];
+        // مرز بیرونی + بور شش‌گوش + ۵ حفره = ۷ حلقه
+        Assert.True(plan.Outlines.Count >= 7, $"باید ۷ حلقه باشد (بدست آمد {plan.Outlines.Count})");
+    }
+
+    [Fact]
+    public void Document_HasIsometricView_WithWireframe()
+    {
+        var part = GearFamilyDefaults.CreatePart(GearFamily.ExternalSpur, "ایزو");
+        var result = GearGeometryEngine.BuildPart(part);
+        var doc = TechnicalDrawingBuilder.Build(part, result);
+
+        var iso = doc.Views.FirstOrDefault(v => v.Title.Contains("ایزومتریک"));
+        Assert.True(iso is not null, "نمای ایزومتریک باید وجود داشته باشد (ایراد ۱۱)");
+        Assert.True(iso!.Lines.Count > 50, $"چارچوب سیمی ایزومتریک باید خطوط کافی داشته باشد ({iso.Lines.Count})");
+
+        // محدودهٔ معقول
+        var b = iso.Bounds;
+        Assert.True(b.MaxX > b.MinX && b.MaxY > b.MinY);
+    }
+
+    [Fact]
+    public void IsometricView_WorksForWormAndBevel()
+    {
+        foreach (var family in new[] { GearFamily.Worm, GearFamily.BevelSpur })
+        {
+            var part = GearFamilyDefaults.CreatePart(family, "ایزو");
+            GearFamilyDefaults.Normalize(part);
+            var result = GearGeometryEngine.BuildPart(part);
+            var doc = TechnicalDrawingBuilder.Build(part, result);
+            var iso = doc.Views.FirstOrDefault(v => v.Title.Contains("ایزومتریک"));
+            Assert.True(iso is { Lines.Count: > 30 }, $"{family}: ایزومتریک خالی است");
+        }
+    }
+
+    [Fact]
+    public void MeshFallbackOutline_NoGaps_AfterInterpolation()
+    {
+        // مسیر افت (خانوادهٔ غیرمنشوری): کرم — سطل‌های خالی باید پر شده باشند
+        var part = GearFamilyDefaults.CreatePart(GearFamily.Worm, "کرم");
+        GearFamilyDefaults.Normalize(part);
+        var result = GearGeometryEngine.BuildPart(part);
+        var doc = TechnicalDrawingBuilder.Build(part, result);
+        var plan = doc.Views[0];
+        Assert.True(plan.Outlines.Count > 0);
+
+        var outer = plan.Outlines[0];
+        // زوایای متوالی نباید گپ بزرگ داشته باشند (خط پیوسته)
+        double prevAng = double.NaN;
+        double maxGap = 0;
+        foreach (var p in outer)
+        {
+            double ang = Math.Atan2(p.Y, p.X);
+            if (!double.IsNaN(prevAng))
+            {
+                double g = Math.Abs(ang - prevAng);
+                if (g > Math.PI) g = 2 * Math.PI - g;
+                maxGap = Math.Max(maxGap, g);
+            }
+            prevAng = ang;
+        }
+        Assert.True(maxGap < 0.05, $"گپ زاویه‌ای {maxGap:F3} rad — خط قطع‌قطع است");
     }
 }

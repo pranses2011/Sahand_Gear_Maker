@@ -18,12 +18,14 @@
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <!-- اجازهٔ کامپایل پروژهٔ ویندوزی روی لینوکس/CI غیرویندوزی (فقط بیلد، نه اجرا) -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
-  </PropertyGroup>
+  
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon></PropertyGroup>
 
   <ItemGroup>
     <!-- MVVM — MIT، نگهداری‌شده توسط تیم .NET -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
-  </ItemGroup>
+  
+    <Resource Include="Assets\app.ico" /></ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SahandGearMaker.Domain\SahandGearMaker.Domain.csproj" />

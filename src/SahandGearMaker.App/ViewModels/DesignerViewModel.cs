@@ -380,6 +380,11 @@ public partial class DesignerViewModel : ObservableObject
             var node = _partNodes.FirstOrDefault(n => n.Id == part.Id);
             node?.Refresh();
             UpdateSceneObject(part, result.Mesh);
+
+            // همهٔ پیام‌ها (اطلاع/هشدار/بررسی‌نشده) در تب «پیام‌ها» هم می‌آیند —
+            // رفع «می‌گوید پیام‌ها را ببینید ولی پیدا نمی‌کنم» (ایراد ۱۵، نسخهٔ ۰٫۵)
+            // پیام‌های قبلی همین قطعه حذف و با نسخهٔ تازه جایگزین می‌شوند (بدون سیل)
+            ReplacePartDiagnostics(part, result.Diagnostics, buildOk: true);
         }
         catch (GeometryBuildException gex)
         {
@@ -388,9 +393,9 @@ public partial class DesignerViewModel : ObservableObject
             part.Validation = gex.Diagnostics.ToList();
             var node = _partNodes.FirstOrDefault(n => n.Id == part.Id);
             node?.Refresh();
-            foreach (var d in gex.Diagnostics)
-                Diagnostics.Add(new DiagnosticViewModel { Code = d.Code, Severity = d.Severity, Message = d.Message });
-            Diagnostics.Add(new DiagnosticViewModel { Severity = Severity.Error, Code = "SGM-UI-BUILD", Message = gex.Message });
+            ReplacePartDiagnostics(part, gex.Diagnostics, buildOk: false);
+            Diagnostics.Add(new DiagnosticViewModel { Severity = Severity.Error, Code = "SGM-UI-BUILD", Message = $"{part.Name}: {gex.Message}" });
+            MessagesTabRequested?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex)
         {
@@ -409,6 +414,39 @@ public partial class DesignerViewModel : ObservableObject
 
     /// <summary>رخداد «صحنه تغییر کرد» — بوم/مونتاژ گوش می‌دهند و دوباره رندر می‌کنند.</summary>
     public event EventHandler? Rebuilt;
+
+    /// <summary>رخداد «ساخت قطعه شکست خورد — تب پیام‌ها را باز کن» (ایراد ۱۵).</summary>
+    public event EventHandler? MessagesTabRequested;
+
+    private readonly Dictionary<string, string> _partMessagePrefixes = new();
+
+    /// <summary>جایگزینی پیام‌های یک قطعه در فهرست سراسری (بدون سیل پیام).</summary>
+    private void ReplacePartDiagnostics(GearPart part, IReadOnlyList<GearDiagnostic> diags, bool buildOk)
+    {
+        string prefix = $"{part.Name}: ";
+        for (int i = Diagnostics.Count - 1; i >= 0; i--)
+            if (Diagnostics[i].Message is not null && Diagnostics[i].Message.StartsWith(prefix, StringComparison.Ordinal))
+                Diagnostics.RemoveAt(i);
+
+        if (!buildOk)
+        {
+            foreach (var d in diags)
+                Diagnostics.Add(new DiagnosticViewModel { Code = d.Code, Severity = d.Severity, Message = prefix + d.Message });
+            return;
+        }
+
+        foreach (var d in diags)
+        {
+            if (d.Severity is Severity.Info or Severity.Warning or Severity.Unverified)
+                Diagnostics.Add(new DiagnosticViewModel
+                {
+                    Code = d.Code,
+                    Severity = d.Severity,
+                    Message = prefix + d.Message,
+                });
+        }
+        _partMessagePrefixes[part.Id] = prefix;
+    }
 
     /// <summary>بازسازی همهٔ قطعات (بارگذاری پروژه/الحاق دسته‌ای).</summary>
     public void RebuildAll()

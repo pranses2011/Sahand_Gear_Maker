@@ -173,7 +173,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            StatusText.Text = "بازکردن فایل ناموفق بود — پیام‌های طراح را ببینید.";
+            StatusText.Text = "بازکردن فایل ناموفق بود — جزئیات در تب «پیام‌ها» در صفحهٔ طراح (ستون چپ، پایین) است.";
         }
     }
 
